@@ -194,25 +194,46 @@ explaining what to fix rather than failing silently.
 
 ## Testing
 
-There is no test runner, by design. The test suite is this checklist, run in two
-browser windows side by side before deploying.
+There is no test runner, by design. The checklist below is the test suite. It has
+been run once against the live Firebase project, in two real Chrome profiles
+driven over the DevTools Protocol — separate profiles rather than two tabs,
+because tabs share `localStorage` and cannot represent two people with different
+saved names.
 
-- [ ] Claim from window A → window B updates without a reload
-- [ ] Release from A → B updates
-- [ ] Both windows claim within the same second → exactly one succeeds, the
-      other says "Someone claimed it a moment ago"
-- [ ] B sees Force release but not Release while A holds the lock
-- [ ] Force release with an empty reason is rejected; with a reason it succeeds
+Verified end to end against the live database:
+
+- [x] Claim from window A → window B updates without a reload
+- [x] Release from A → B updates
+- [x] Both windows claim in the same instant → exactly one succeeds, the other is
+      told "Someone claimed it a moment ago", and only the winner is logged
+- [x] B sees Force release but not Release while A holds the lock
+- [x] Force release with an empty reason is rejected; with a reason it succeeds
       and logs both names
-- [ ] Elapsed timer ticks every second and survives a reload with the same value
-- [ ] OS clock shifted ±10 minutes → elapsed time unchanged
-- [ ] DevTools → Network → Offline → indicator goes amber and the card dims
-- [ ] Back online → indicator recovers and the state resyncs
-- [ ] Tab hidden 5 minutes, then refocused → state is current
-- [ ] A 41-character name or a 121-character note is rejected and the UI shows a
-      sane message rather than throwing
-- [ ] Reads correctly on a phone screen
-- [ ] A direct write attempt from a logged-out console is rejected by the rules
+- [x] Elapsed timer ticks every second, and keeps counting across a reload from
+      the same start time rather than restarting
+- [x] Offline → indicator goes amber, reads "reconnecting…", and the card dims
+- [x] Back online → indicator recovers and the state resyncs to whatever changed
+      while the window was blind
+- [x] An over-long name or note, an out-of-range duration, a bad status, an
+      invented field and a write outside the schema are all rejected by the rules
+- [x] A direct write attempt without a token is rejected by the rules
+- [x] The whole `/log` node cannot be deleted by a client
+
+Verified, but not in the literal way the box describes — worth a human eye if you
+want the box fully closed:
+
+- [~] **OS clock shifted ±10 minutes → elapsed unchanged.** The mechanism is
+      verified: `serverNow()` stays put when the local clock jumps ten minutes
+      and Firebase reports a compensating offset. Nobody has actually changed a
+      real machine's clock.
+- [~] **Tab hidden five minutes, then refocused.** The recovery path is verified
+      by killing the listeners outright and firing `visibilitychange`, which is
+      harsher than a sleeping laptop — but no laptop was actually slept.
+- [~] **Reads correctly on a phone screen.** Verified at a true 360px viewport,
+      not on a physical device.
+
+The `Setup A` / `Setup B` entries in the activity log are from that verification
+run. They scroll off once there are ten real entries.
 
 ## The three things that actually matter
 
