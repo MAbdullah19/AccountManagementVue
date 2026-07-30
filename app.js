@@ -14,6 +14,7 @@ import { claim, release, forceRelease } from './lock.js';
 const el = (id) => document.getElementById(id);
 
 const NAME_KEY = 'account-board:name';
+const DEFAULT_MINUTES = 30;
 
 // Everything the UI needs to draw itself. Not a state management layer — just
 // the last thing each listener told us.
@@ -292,7 +293,9 @@ function wireEvents(db) {
 
     const holder = el('name').value.trim();
     const note = el('note').value.trim();
-    const expectedMinutes = Number(el('minutes').value);
+    // An emptied duration field means "the usual", not an error.
+    const minutes = el('minutes').value.trim();
+    const expectedMinutes = minutes === '' ? DEFAULT_MINUTES : Number(minutes);
 
     if (!holder) {
       setMsg('claim-msg', 'Put your name in first.', 'error');
