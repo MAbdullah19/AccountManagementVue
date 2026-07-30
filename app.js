@@ -3,10 +3,12 @@
 // Firebase is imported from the CDN as ES modules — no npm, no build step.
 // The version is pinned deliberately; do not switch to a floating tag.
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
-import { getDatabase, ref, onValue, get } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js';
+import { getDatabase, ref, onValue, get, query, limitToLast }
+  from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js';
 import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
 import { firebaseConfig } from './firebase-config.js';
-import { initClock, serverNow, formatElapsed, formatDuration, formatTimeOfDay } from './clock.js';
+import { initClock, serverNow, formatElapsed, formatDuration, formatTimeOfDay, formatLogTime }
+  from './clock.js';
 import { claim, release, forceRelease } from './lock.js';
 
 const el = (id) => document.getElementById(id);
@@ -20,7 +22,10 @@ const state = {
   lastStatus: null,
   connected: false,
   everConnected: false,
+  log: [],
 };
+
+const LOG_LIMIT = 10;
 
 /* ---------------------------------------------------------------- banner */
 
@@ -149,6 +154,60 @@ function renderHeldMeta() {
   el('held-meta').textContent = parts.join(' · ');
 }
 
+/* -------------------------------------------------------- activity log */
+
+// Names and reasons are free text typed by colleagues, so every line is built
+// with textContent. Nothing here touches innerHTML.
+function describe(entry) {
+  const name = entry.name || 'Someone';
+  switch (entry.action) {
+    case 'claimed':
+      return `${name} claimed the account`;
+    case 'released':
+      return `${name} released it`;
+    case 'force-released': {
+      const who = entry.heldBy ? ` (held by ${entry.heldBy})` : '';
+      const why = entry.reason ? ` — “${entry.reason}”` : '';
+      return `${name} force-released it${who}${why}`;
+    }
+    default:
+      return `${name} ${entry.action || 'did something'}`;
+  }
+}
+
+function logLine(entry) {
+  const li = document.createElement('li');
+  const time = document.createElement('span');
+  time.className = 'log-time';
+  time.textContent = typeof entry.at === 'number' ? formatLogTime(entry.at) : '—';
+  li.append(time, document.createTextNode(` — ${describe(entry)}`));
+  return li;
+}
+
+function renderLog() {
+  const list = el('log-list');
+  list.textContent = '';
+
+  if (!state.log.length) {
+    const empty = document.createElement('li');
+    empty.className = 'log-empty';
+    empty.textContent = 'No activity yet.';
+    list.append(empty);
+    return;
+  }
+
+  for (const entry of state.log) list.append(logLine(entry));
+}
+
+// limitToLast hands entries back oldest-first; the board reads newest-first.
+function readLog(snap) {
+  const entries = [];
+  snap.forEach((child) => {
+    entries.push(child.val());
+  });
+  return entries.reverse();
+}
+
 /* ------------------------------------------------------------ connection */
 
 // This must reflect the connection, not the age of the last message. onValue
@@ -214,12 +273,17 @@ function wireEvents(db) {
       return;
     }
 
+    // Save the name before claiming, not after. The listener fires during the
+    // transaction's local write, so a name saved afterwards would arrive too
+    // late for that first render and the holder would not be offered Release
+    // until something else redrew the card.
+    saveName(holder);
+
     const result = await whileBusy(el('claim-btn'), 'Claiming…', () =>
       claim(db, { holder, note, expectedMinutes })
     );
 
     if (result.ok) {
-      saveName(result.holder);
       el('note').value = '';
       return; // the listener redraws the card
     }
@@ -310,6 +374,15 @@ async function start() {
     )
   );
 
+  onValue(
+    query(ref(db, 'log'), limitToLast(LOG_LIMIT)),
+    (snap) => {
+      state.log = readLog(snap);
+      renderLog();
+    },
+    (err) => console.warn('[board] cannot read the log', err)
+  );
+
   // Cheap insurance against a listener that died while the laptop was asleep.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') refresh(db);
@@ -318,9 +391,14 @@ async function start() {
 
 async function refresh(db) {
   try {
-    const snap = await get(ref(db, 'lock'));
-    state.lock = snap.val();
+    const [lockSnap, logSnap] = await Promise.all([
+      get(ref(db, 'lock')),
+      get(query(ref(db, 'log'), limitToLast(LOG_LIMIT))),
+    ]);
+    state.lock = lockSnap.val();
+    state.log = readLog(logSnap);
     render();
+    renderLog();
   } catch (err) {
     console.warn('[board] refetch on focus failed', err);
   }
