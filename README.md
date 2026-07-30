@@ -172,9 +172,25 @@ explaining what to fix rather than failing silently.
    `localhost` by default and **silently fails in production** until you do this.
    The symptom is the "Could not sign in" banner on the deployed site while
    localhost works perfectly.
-4. Cloudflare dashboard → **Zero Trust → Access → Applications → Add a
-   self-hosted application** for the Pages domain, with an email policy listing
-   the team. Free for up to 50 users.
+4. Cloudflare dashboard → **Zero Trust → Access → Applications → Add an
+   application → Self-hosted**, with the Pages domain (plus any custom domain).
+   Add a policy: action **Allow**, Include → **Emails**, then list each person's
+   address individually. Free for up to 50 users.
+
+   The team does not need company email addresses. Access authenticates by
+   address, not by domain, and the **One-time PIN** identity provider (on by
+   default) emails a six-digit code to any address, personal Gmail included. You
+   can add Google as an identity provider later if one-click sign-in is worth the
+   setup.
+
+   > Use `Emails` with explicit addresses, **not** `Emails ending in` →
+   > `@gmail.com`. The latter admits every Gmail account on earth, which is the
+   > exact opposite of the intent.
+
+   Cloudflare Access and Firebase's authorized domains are unrelated: Access
+   gates the page by the reader's email, authorized domains is about the site's
+   own hostname. The board itself never sees anyone's email address — people type
+   a display name.
 
 ## Testing
 

@@ -8,3 +8,9 @@ desktop.ini
 .idea/
 *.swp
 *~
+.env.local
+
+# firebase-config.js is deliberately NOT ignored. Cloudflare Pages serves this
+# repo as-is with no build step, so the file has to be committed or the deployed
+# site cannot import it. The web API key in it is not a secret, and the repo is
+# private. See the README.
