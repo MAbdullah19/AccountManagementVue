@@ -1,0 +1,23 @@
+{
+  "rules": {
+    "lock": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "status": {
+        ".validate": "newData.isString() && (newData.val() === 'free' || newData.val() === 'held')"
+      },
+      "holder": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 40" },
+      "note": { ".validate": "newData.isString() && newData.val().length <= 120" },
+      "claimedAt": { ".validate": "newData.isNumber()" },
+      "expectedMinutes": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 480" },
+      "$other": { ".validate": false }
+    },
+    "log": {
+      ".read": "auth != null",
+      "$entry": {
+        ".write": "auth != null && !data.exists()",
+        ".validate": "newData.hasChildren(['name','action','at'])"
+      }
+    }
+  }
+}
