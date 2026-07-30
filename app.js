@@ -318,7 +318,12 @@ function wireEvents(db) {
       el('note').value = '';
       return; // the listener redraws the card
     }
-    setMsg('claim-msg', explain(result), 'error');
+
+    // By now the listener has usually redrawn the card. If someone else won the
+    // race the free view is hidden, so a message written there would never be
+    // seen — put it wherever the reader is actually looking.
+    const visible = state.lock && state.lock.status === 'held' ? 'held-msg' : 'claim-msg';
+    setMsg(visible, explain(result), 'error');
   });
 
   el('release-btn').addEventListener('click', async () => {
