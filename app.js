@@ -3,10 +3,10 @@
 // Firebase is imported from the CDN as ES modules — no npm, no build step.
 // The version is pinned deliberately; do not switch to a floating tag.
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
-import { getDatabase, ref, onValue } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js';
+import { getDatabase, ref, onValue, get } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js';
 import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
 import { firebaseConfig } from './firebase-config.js';
-import { initClock, serverNow, formatElapsed, formatTimeOfDay } from './clock.js';
+import { initClock, serverNow, formatElapsed, formatDuration, formatTimeOfDay } from './clock.js';
 import { claim, release, forceRelease } from './lock.js';
 
 const el = (id) => document.getElementById(id);
@@ -18,6 +18,8 @@ const NAME_KEY = 'account-board:name';
 const state = {
   lock: null,
   lastStatus: null,
+  connected: false,
+  everConnected: false,
 };
 
 /* ---------------------------------------------------------------- banner */
@@ -78,19 +80,28 @@ function setView(name) {
   for (const view of VIEWS) el(`view-${view}`).hidden = view !== name;
 }
 
+// Overdue is purely visual. Nothing auto-releases and nothing is blocked — it
+// just makes a forgotten release legible to the room.
+function isOverdue(lock) {
+  if (!lock || lock.status !== 'held') return false;
+  if (typeof lock.claimedAt !== 'number' || typeof lock.expectedMinutes !== 'number') return false;
+  return serverNow() > lock.claimedAt + lock.expectedMinutes * 60000;
+}
+
 function render() {
   const lock = state.lock;
   const held = Boolean(lock) && lock.status === 'held' && Boolean(lock.holder);
   const status = held ? 'held' : 'free';
 
-  // Clear stale inline messages whenever the board actually changes state.
+  // Clear stale inline messages whenever the board actually changes hands.
+  // Going overdue is not a change of hands, so it must not wipe a message.
   if (status !== state.lastStatus) {
     setMsg('claim-msg', '');
     setMsg('held-msg', '');
     state.lastStatus = status;
   }
 
-  el('card').dataset.state = status;
+  el('card').dataset.state = held && isOverdue(lock) ? 'overdue' : status;
   setView(status);
 
   if (held) renderHeld(lock);
@@ -124,14 +135,51 @@ function renderHeldMeta() {
   }
 
   const parts = [`Since ${formatTimeOfDay(lock.claimedAt)}`];
-  parts.push(`${formatElapsed(serverNow() - lock.claimedAt)} elapsed`);
 
-  if (typeof lock.expectedMinutes === 'number') {
-    const due = lock.claimedAt + lock.expectedMinutes * 60000;
-    parts.push(`est. free by ${formatTimeOfDay(due)}`);
+  if (isOverdue(lock)) {
+    parts.push(`held ${formatDuration(serverNow() - lock.claimedAt)} — still in use?`);
+  } else {
+    parts.push(`${formatElapsed(serverNow() - lock.claimedAt)} elapsed`);
+    if (typeof lock.expectedMinutes === 'number') {
+      const due = lock.claimedAt + lock.expectedMinutes * 60000;
+      parts.push(`est. free by ${formatTimeOfDay(due)}`);
+    }
   }
 
   el('held-meta').textContent = parts.join(' · ');
+}
+
+/* ------------------------------------------------------------ connection */
+
+// This must reflect the connection, not the age of the last message. onValue
+// only fires on change, so an account sitting free for two hours is perfectly
+// healthy and a "last synced" indicator would libel it.
+function setConnected(connected) {
+  state.connected = connected;
+  if (connected) state.everConnected = true;
+
+  const conn = el('conn');
+  conn.dataset.state = connected ? 'live' : state.everConnected ? 'offline' : 'connecting';
+  el('conn-label').textContent = connected
+    ? 'live'
+    : state.everConnected
+      ? 'reconnecting…'
+      : 'connecting…';
+
+  // A frozen page showing "Available" is worse than no board at all, so a
+  // stale reading has to look stale.
+  el('card').dataset.stale = String(!connected && state.everConnected);
+}
+
+/* ------------------------------------------------------------------ tick */
+
+// The network carries one number — claimedAt — and the browser does the
+// ticking. Recomputing locally every second means no polling, and the value
+// survives a reload because it was never held in a counter.
+function tick() {
+  if (!state.lock || state.lock.status !== 'held') return;
+  el('card').dataset.state = isOverdue(state.lock) ? 'overdue' : 'held';
+  renderHeldMeta();
 }
 
 /* ---------------------------------------------------------------- events */
@@ -244,6 +292,9 @@ async function start() {
 
   initClock(db);
   wireEvents(db);
+  setInterval(tick, 1000);
+
+  onValue(ref(db, '.info/connected'), (snap) => setConnected(snap.val() === true));
 
   // onValue fires immediately with the current value, then again on every
   // change — the first callback is not a change event.
@@ -258,6 +309,21 @@ async function start() {
       `${err.message} — check the Realtime Database rules have been published.`
     )
   );
+
+  // Cheap insurance against a listener that died while the laptop was asleep.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refresh(db);
+  });
+}
+
+async function refresh(db) {
+  try {
+    const snap = await get(ref(db, 'lock'));
+    state.lock = snap.val();
+    render();
+  } catch (err) {
+    console.warn('[board] refetch on focus failed', err);
+  }
 }
 
 if (configLooksReal(firebaseConfig)) {
