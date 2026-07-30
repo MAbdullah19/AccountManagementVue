@@ -1,0 +1,10 @@
+# There is no build step and no dependencies — nothing generated to ignore.
+# This file exists to keep OS and editor droppings out of the repo.
+
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*~

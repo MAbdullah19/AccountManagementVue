@@ -1,0 +1,297 @@
+/* Shared Account Status Board
+   Flat, high-contrast, no gradients, no shadows. Colour is always paired with
+   text so the board still reads in grayscale and for colourblind users. */
+
+:root {
+  --ink: #16181d;
+  --ink-soft: #5c626e;
+  --line: #c8ccd4;
+  --line-strong: #16181d;
+  --bg: #fff;
+
+  --free-bg: #ecfdf3;
+  --free-line: #12894b;
+  --free-ink: #0a6034;
+
+  --held-bg: #fdf0ef;
+  --held-line: #c5332e;
+  --held-ink: #8f2723;
+
+  --over-bg: #fff8e6;
+  --over-line: #b5760a;
+  --over-ink: #7d5205;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.shell {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+/* ---------- header ---------- */
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.head-text { min-width: 0; }
+
+h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.sub {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+/* ---------- connection indicator ---------- */
+
+.conn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding-top: 3px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.conn .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--ink-soft);
+}
+
+.conn[data-state="live"] .dot { background: var(--free-line); }
+.conn[data-state="live"] { color: var(--free-ink); }
+.conn[data-state="offline"] .dot { background: var(--over-line); }
+.conn[data-state="offline"] { color: var(--over-ink); }
+
+/* ---------- setup / error banner ---------- */
+
+.banner {
+  border: 2px solid var(--over-line);
+  background: var(--over-bg);
+  color: var(--over-ink);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.banner strong { display: block; margin-bottom: 4px; }
+.banner p { margin: 0; overflow-wrap: anywhere; }
+.banner code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+
+/* ---------- status card ---------- */
+
+.card {
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  padding: 20px;
+  transition: opacity 120ms linear;
+}
+
+.card[data-state="free"]     { border-color: var(--free-line); background: var(--free-bg); }
+.card[data-state="held"]     { border-color: var(--held-line); background: var(--held-bg); }
+.card[data-state="overdue"]  { border-color: var(--over-line); background: var(--over-bg); }
+
+/* A stale reading must look stale. */
+.card[data-stale="true"] { opacity: 0.45; }
+
+.state-word {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.card[data-state="free"]    .state-word { color: var(--free-ink); }
+.card[data-state="held"]    .state-word { color: var(--held-ink); }
+.card[data-state="overdue"] .state-word { color: var(--over-ink); }
+
+.state-word.muted { color: var(--ink-soft); font-size: 20px; font-weight: 600; }
+
+.holder {
+  margin: 6px 0 0;
+  font-size: 20px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.state-sub {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.card[data-state="overdue"] .state-sub { color: var(--over-ink); font-weight: 600; }
+
+.held-note {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.muted { color: var(--ink-soft); font-weight: 400; }
+
+/* ---------- forms ---------- */
+
+.claim-form, .force-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field-short { max-width: 170px; }
+
+.label { font-size: 13px; font-weight: 600; }
+
+input {
+  font: inherit;
+  font-size: 16px; /* 16px stops iOS zooming on focus */
+  color: var(--ink);
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 6px;
+  padding: 9px 10px;
+  min-height: 44px;
+  width: 100%;
+}
+
+input:focus-visible {
+  outline: 2px solid var(--line-strong);
+  outline-offset: 1px;
+  border-color: var(--line-strong);
+}
+
+input[aria-invalid="true"] { border-color: var(--held-line); }
+
+.btn {
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  border: 2px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 11px 16px;
+  min-height: 44px;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.btn-primary { background: var(--line-strong); color: #fff; }
+.btn-quiet   { background: #fff; color: var(--ink); border-color: var(--line); }
+
+.btn:focus-visible { outline: 2px solid var(--line-strong); outline-offset: 2px; }
+
+.btn[disabled] {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 18px;
+}
+
+.actions .btn-primary { margin-bottom: 6px; }
+
+.force-form {
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+/* ---------- inline messages ---------- */
+
+.msg {
+  margin: 10px 0 0;
+  font-size: 14px;
+  min-height: 1.45em;
+}
+
+.msg:empty { margin-top: 0; min-height: 0; }
+.msg[data-tone="error"] { color: var(--held-ink); font-weight: 600; }
+.msg[data-tone="info"]  { color: var(--ink-soft); }
+
+/* ---------- recent activity ---------- */
+
+.activity { margin-top: 28px; }
+
+.activity h2 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.log li {
+  padding: 6px 0;
+  border-bottom: 1px solid #eceef2;
+  overflow-wrap: anywhere;
+}
+
+.log li:last-child { border-bottom: 0; }
+.log-empty, .log-time { color: var(--ink-soft); }
+.log-time { font-variant-numeric: tabular-nums; }
+
+/* ---------- footer ---------- */
+
+.foot {
+  margin-top: 28px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.foot p { margin: 0; }
+
+/* Narrow phones: nothing structural to change, just keep the header from
+   crushing the account name against the indicator. */
+@media (max-width: 380px) {
+  .head { flex-direction: column; }
+  .conn { padding-top: 0; }
+  .state-word { font-size: 26px; }
+}

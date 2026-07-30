@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Account board</title>
+<meta name="color-scheme" content="light">
+<!-- Critical styles: layout skeleton only, so the card never flashes unstyled. -->
+<style>
+  :root { --w: 560px; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #fff;
+    color: #16181d;
+  }
+  .shell { max-width: var(--w); margin: 0 auto; padding: 24px 16px 48px; }
+  .card { border: 2px solid #c8ccd4; border-radius: 10px; padding: 20px; }
+  [hidden] { display: none !important; }
+</style>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<main class="shell">
+
+  <!-- EDIT ME: the account this board tracks, and one line about it. -->
+  <header class="head">
+    <div class="head-text">
+      <h1 id="account-id">ops@company.com</h1>
+      <p class="sub">One shared login. One person at a time. Claim it before you use it.</p>
+    </div>
+    <div class="conn" id="conn" data-state="connecting" title="Connection to the board">
+      <span class="dot" aria-hidden="true"></span>
+      <span class="conn-label" id="conn-label">connecting…</span>
+    </div>
+  </header>
+
+  <!-- Shown only when setup is incomplete or sign-in fails. -->
+  <div class="banner" id="banner" hidden role="alert">
+    <strong id="banner-title">Setup incomplete</strong>
+    <p id="banner-body"></p>
+  </div>
+
+  <section class="card" id="card" data-state="loading" aria-live="polite">
+
+    <!-- loading -->
+    <div class="view" id="view-loading">
+      <p class="state-word muted">Loading…</p>
+    </div>
+
+    <!-- free -->
+    <div class="view" id="view-free" hidden>
+      <p class="state-word">Available</p>
+      <p class="state-sub">Nobody is holding the account right now.</p>
+
+      <form class="claim-form" id="claim-form" novalidate>
+        <label class="field">
+          <span class="label">Your name</span>
+          <input id="name" name="name" type="text" maxlength="40" autocomplete="name"
+                 placeholder="e.g. Ayesha K." required>
+        </label>
+
+        <label class="field">
+          <span class="label">What for? <span class="muted">(optional)</span></span>
+          <input id="note" name="note" type="text" maxlength="120"
+                 placeholder="e.g. running the monthly export">
+        </label>
+
+        <label class="field field-short">
+          <span class="label">Expected minutes</span>
+          <input id="minutes" name="minutes" type="number" min="1" max="480" step="1" value="30" required>
+        </label>
+
+        <button class="btn btn-primary" id="claim-btn" type="submit">Claim</button>
+      </form>
+
+      <p class="msg" id="claim-msg" role="status"></p>
+    </div>
+
+    <!-- held / overdue -->
+    <div class="view" id="view-held" hidden>
+      <p class="state-word" id="held-word">In use</p>
+      <p class="holder" id="holder">—</p>
+      <p class="state-sub" id="held-meta"></p>
+      <p class="held-note" id="held-note" hidden></p>
+
+      <div class="actions">
+        <button class="btn btn-primary" id="release-btn" type="button" hidden>Release</button>
+
+        <form class="force-form" id="force-form" novalidate>
+          <label class="field">
+            <span class="label">Force release <span class="muted">— reason required</span></span>
+            <input id="force-reason" name="reason" type="text" maxlength="120"
+                   placeholder="e.g. Ayesha left for the day">
+          </label>
+          <button class="btn btn-quiet" id="force-btn" type="submit" disabled>Force release</button>
+        </form>
+      </div>
+
+      <p class="msg" id="held-msg" role="status"></p>
+    </div>
+
+  </section>
+
+  <section class="activity">
+    <h2>Recent activity</h2>
+    <ul class="log" id="log-list">
+      <li class="log-empty">No activity yet.</li>
+    </ul>
+  </section>
+
+  <footer class="foot">
+    <p>Honour system — this board tells you who has the account, it does not enforce anything.</p>
+  </footer>
+
+</main>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
