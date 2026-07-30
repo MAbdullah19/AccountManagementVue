@@ -111,11 +111,35 @@ function render() {
 
   if (held) renderHeld(lock);
   else renderFree();
+
+  updateTitle();
 }
 
 function renderFree() {
   const name = el('name');
+  // Prefilling the saved name is what makes claiming one click for a returning
+  // user. Never overwrite something they are in the middle of typing.
   if (!name.value) name.value = savedName();
+  syncClaimButton();
+}
+
+function syncClaimButton() {
+  el('claim-btn').disabled = !el('name').value.trim();
+}
+
+// The tab title is the board for anyone who keeps it pinned, so it carries the
+// status rather than a fixed app name.
+let accountLabel = '';
+
+function updateTitle() {
+  if (!accountLabel) accountLabel = el('account-id').textContent.trim() || 'shared account';
+
+  const lock = state.lock;
+  if (!lock || lock.status !== 'held' || !lock.holder) {
+    document.title = `○ Free — ${accountLabel}`;
+    return;
+  }
+  document.title = `${isOverdue(lock) ? '⚠' : '●'} In use — ${lock.holder}`;
 }
 
 function renderHeld(lock) {
@@ -239,6 +263,7 @@ function tick() {
   if (!state.lock || state.lock.status !== 'held') return;
   el('card').dataset.state = isOverdue(state.lock) ? 'overdue' : 'held';
   renderHeldMeta();
+  updateTitle();
 }
 
 /* ---------------------------------------------------------------- events */
@@ -258,6 +283,8 @@ async function whileBusy(button, label, fn) {
 }
 
 function wireEvents(db) {
+  el('name').addEventListener('input', syncClaimButton);
+
   // A form submit means Enter in any field claims the account.
   el('claim-form').addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -282,6 +309,7 @@ function wireEvents(db) {
     const result = await whileBusy(el('claim-btn'), 'Claiming…', () =>
       claim(db, { holder, note, expectedMinutes })
     );
+    syncClaimButton();
 
     if (result.ok) {
       el('note').value = '';
