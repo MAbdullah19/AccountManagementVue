@@ -11,6 +11,7 @@ import { createAccount, renameAccount, deleteAccount, addUser, removeUser } from
 import { loadIdentity } from './identity.js';
 import { connect, showBanner, watchConnection, renderWho } from './boot.js';
 import { initTheme } from './theme.js';
+import { initRipples } from './cursor.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -845,9 +846,10 @@ function tick() {
 /* ---------------------------------------------------------------- startup */
 
 async function start() {
-  // First, and before any await: the theme is the one control that has to work
-  // on a page that failed to reach Firebase at all.
+  // First, and before any await: these are the two things that have to work on
+  // a page that never reached Firebase at all.
   initTheme();
+  initRipples();
 
   // Also before the awaits. The wait a reader actually sits through is the
   // sign-in round trip, not the snapshot that follows it, so a board that only

@@ -113,6 +113,7 @@ accounts.js         account metadata and roster writes
 identity.js         Cloudflare Access identity + the owner check
 clock.js            server time offset and all time formatting
 theme.js            the light/dark toggle, shared by both pages
+cursor.js           the ring a click leaves behind
 functions/api/      one Pages Function, which answers "who is reading this?"
 database.rules.json the rules to paste into the Firebase console
 preview.html        every card state, rendered without Firebase
@@ -136,6 +137,15 @@ surfaces and inks, which is why adding one means filling in a second list of
 custom properties and touching nothing else. The red cards do not follow the
 theme at all — they are lit panels rather than page background, and they are the
 same colour under both.
+
+The pointer is drawn from the same five: a metallic arrow with the mark's black
+outline, a lighter one over anything clickable, and a small ring where you
+click. Two spare cursors sit beside them in `styles.css` if you would rather the
+pointer be the literal V — it is the better likeness and the worse cursor, since
+a V has two top corners and only one of them is the hotspot. Text fields keep a
+normal I-beam, because an I-beam is the only thing that says where the caret
+lands. None of it is drawn by JavaScript: a div chasing the mouse is always a
+frame behind, and hiding that would mean hiding the real pointer.
 
 ## Data model
 
