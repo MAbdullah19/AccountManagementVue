@@ -22,8 +22,9 @@ account-board-implementation-plan.md
 # exact shape of the database for free.
 database.rules.json
 
-# Screenshots kept in the repo for reference. logo.png is not one of them — it
-# is the favicon and the wordmark, and the site breaks without it.
+# Screenshots kept in the repo for reference — including screenshot.png, which
+# is only for the README. logo.png is different: it is the favicon and the
+# wordmark, and the site breaks without it.
 *.png
 !logo.png
 
