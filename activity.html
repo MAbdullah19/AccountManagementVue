@@ -32,6 +32,10 @@
   }
   :root[data-theme="dark"] body { background: #0e0e0f; color: #f4f4f5; }
   .shell { max-width: var(--w); margin: 0 auto; padding: 28px 20px 56px; }
+  /* grid.js appends a canvas sized in device pixels. Unstyled that is an inline
+     box two thousand pixels tall at the top of the body, so this one rule is
+     not decoration — it is what stops the page folding if styles.css is slow. */
+  .grid-bg { position: fixed; inset: 0; z-index: -2; width: 100%; height: 100%; pointer-events: none; }
   [hidden] { display: none !important; }
 </style>
 <link rel="stylesheet" href="styles.css">

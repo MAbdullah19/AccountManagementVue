@@ -269,6 +269,27 @@ body::after {
     radial-gradient(40% 90% at 88% -20%, rgba(120, 0, 0, var(--glow)) 0%, transparent 70%);
 }
 
+/* ---------- the background lattice ---------- */
+
+/* grid.js appends this and draws into it; nothing else in the page touches it.
+   Behind the brand wash above rather than in front, so the red glow still reads
+   as the top of the page instead of as a bright patch of grid.
+
+   Fixed and pointer-events:none for the same reasons the ripple is: a full-page
+   element that could take a click would swallow every button under it, and one
+   that could grow the document would put a scrollbar on a page that fits.
+
+   The attribute width/height are set in device pixels for sharpness on a retina
+   screen; these two lines are what map that back down to one viewport. */
+.grid-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 .shell {
   max-width: var(--w);
   margin: 0 auto;

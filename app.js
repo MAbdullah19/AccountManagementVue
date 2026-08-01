@@ -12,6 +12,7 @@ import { loadIdentity } from './identity.js';
 import { connect, showBanner, watchConnection, renderWho } from './boot.js';
 import { initTheme } from './theme.js';
 import { initRipples } from './cursor.js';
+import { initKineticGrid } from './grid.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -850,6 +851,7 @@ async function start() {
   // a page that never reached Firebase at all.
   initTheme();
   initRipples();
+  initKineticGrid();
 
   // Also before the awaits. The wait a reader actually sits through is the
   // sign-in round trip, not the snapshot that follows it, so a board that only

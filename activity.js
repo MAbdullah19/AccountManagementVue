@@ -9,6 +9,7 @@ import { loadIdentity } from './identity.js';
 import { connect, showBanner, watchConnection, renderWho } from './boot.js';
 import { initTheme } from './theme.js';
 import { initRipples } from './cursor.js';
+import { initKineticGrid } from './grid.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -124,6 +125,7 @@ async function start() {
   // only thing most readers of this URL will ever see.
   initTheme();
   initRipples();
+  initKineticGrid();
 
   // Asked first, and on its own: a non-owner never reaches Firebase at all, so
   // the log is not fetched into a page that is not going to show it.
