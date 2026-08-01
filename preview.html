@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board preview</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main class="shell">
+  <div class="topbar">
+    <div class="brand"><span class="brand-mark"></span><span class="brand-text">ACCOUNT BOARD</span></div>
+    <div class="topbar-right">
+      <span class="who" data-admin="true">bloodstone.08water@gmail.com · owner</span>
+      <div class="conn" data-state="live"><span class="dot"></span><span>live</span></div>
+    </div>
+  </div>
+  <header class="head">
+    <h1>Shared accounts</h1>
+    <p class="sub">One person at a time on each one. Claim it before you use it, release it when you are done.</p>
+  </header>
+  <section class="board" id="board"></section>
+  <section class="activity">
+    <h2>Recent activity</h2>
+    <ul class="log" id="log-list"></ul>
+  </section>
+  <footer class="foot"><p>Honour system — this board tells you who has an account, it does not enforce anything.</p></footer>
+</main>
+
+<script type="module">
+// Pulls the real templates out of index.html so this preview cannot drift.
+const html = await (await fetch('/index.html')).text();
+const doc = new DOMParser().parseFromString(html, 'text/html');
+const cardTpl = doc.getElementById('card-template');
+const addTpl = doc.getElementById('add-template');
+const board = document.getElementById('board');
+
+const ACCOUNTS = [
+  { label: 'users@vuepulse.com', desc: 'Main shared login', state: 'free',
+    users: [['Ayesha K.', 'Finance'], ['Bilal R.', ''], ['Fatima S.', 'Support lead']] },
+  { label: 'billing@vuepulse.com', desc: 'Stripe dashboard', state: 'held',
+    holder: 'Ayesha K.', meta: 'Since 2:14 PM · 32m 07s elapsed · est. free by 3:00 PM',
+    note: 'running the monthly export', users: [['Ayesha K.', 'Finance'], ['Omar T.', '']] },
+  { label: 'ops@vuepulse.com', desc: '', state: 'overdue', holder: 'Bilal R.',
+    meta: 'Since 9:02 AM · held 4h 51m — still in use?', word: 'Overdue', release: true,
+    users: [['Bilal R.', 'Primary']] },
+  { label: 'analytics@vuepulse.com', desc: 'GA4 + Looker', state: 'free', users: [] },
+  { label: 'support@vuepulse.com', desc: 'Zendesk agent seat', state: 'held',
+    holder: 'Fatima S.', meta: 'Since 11:40 AM · 6m 12s elapsed · est. free by 12:10 PM',
+    users: [['Fatima S.', ''], ['Hina M.', 'Weekends']] },
+];
+
+for (const a of ACCOUNTS) {
+  const root = cardTpl.content.firstElementChild.cloneNode(true);
+  const els = {};
+  for (const n of root.querySelectorAll('[data-el]')) els[n.dataset.el] = n;
+
+  root.dataset.state = a.state;
+  els.label.textContent = a.label;
+  els.description.textContent = a.desc;
+  els.description.hidden = !a.desc;
+
+  const held = a.state !== 'free';
+  els['view-free'].hidden = held;
+  els['view-held'].hidden = !held;
+
+  if (held) {
+    els['held-word'].textContent = a.word || 'In use';
+    els.holder.textContent = a.holder;
+    els['held-meta'].textContent = a.meta;
+    els['held-note'].textContent = a.note || '';
+    els['held-note'].hidden = !a.note;
+    els['release-btn'].hidden = !a.release;
+  } else {
+    els.name.value = 'Ayesha K.';
+  }
+
+  const list = els['roster-list'];
+  els.roster.hidden = false;
+  els['roster-more'].hidden = false;
+  for (const [name, note] of (a.users || [])) {
+    const li = document.createElement('li');
+    const n = document.createElement('span');
+    n.className = 'roster-name';
+    n.textContent = name;
+    li.append(n);
+    if (note) {
+      const s = document.createElement('span');
+      s.className = 'roster-note';
+      s.textContent = note;
+      li.append(s);
+    }
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'roster-remove';
+    x.textContent = '×';
+    li.append(x);
+    list.append(li);
+  }
+  if (!(a.users || []).length) {
+    const li = document.createElement('li');
+    li.className = 'roster-empty';
+    li.textContent = 'Nobody listed yet.';
+    list.append(li);
+  }
+
+  els.admin.hidden = false;
+  board.append(root);
+}
+
+board.append(addTpl.content.firstElementChild.cloneNode(true));
+
+const LOG = [
+  ['2:14 PM', 'Ayesha K. claimed billing@vuepulse.com'],
+  ['1:58 PM', 'Ayesha K. released users@vuepulse.com'],
+  ['1:02 PM', 'Bilal R. force-released ops@vuepulse.com (held by Ayesha K.) — “left for the day”'],
+  ['Jul 30, 1:06 PM', 'Setup B released the account'],
+];
+for (const [time, text] of LOG) {
+  const li = document.createElement('li');
+  const t = document.createElement('span');
+  t.className = 'log-time';
+  t.textContent = time;
+  li.append(t, document.createTextNode(` — ${text}`));
+  document.getElementById('log-list').append(li);
+}
+</script>
+</body>
+</html>

@@ -10,9 +10,9 @@
      unencoded < or > makes the URL unparseable and Chrome silently falls back
      to requesting /favicon.ico. -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%3E%3Crect%20width='16'%20height='16'%20rx='5'%20fill='%23e01e37'/%3E%3C/svg%3E">
-<!-- Critical styles: layout skeleton only, so the card never flashes unstyled. -->
+<!-- Critical styles: layout skeleton only, so the board never flashes unstyled. -->
 <style>
-  :root { --w: 720px; }
+  :root { --w: 1080px; }
   html { -webkit-text-size-adjust: 100%; }
   body {
     margin: 0;
@@ -21,7 +21,7 @@
     color: #0d0e11;
   }
   .shell { max-width: var(--w); margin: 0 auto; padding: 28px 20px 56px; }
-  .card { border: 1px solid #e2e5ea; border-radius: 18px; padding: 26px; }
+  .card { border: 1px solid #e2e5ea; border-radius: 18px; padding: 22px; }
   [hidden] { display: none !important; }
 </style>
 <link rel="stylesheet" href="styles.css">
@@ -33,18 +33,22 @@
   <div class="topbar">
     <div class="brand">
       <span class="brand-mark" aria-hidden="true"></span>
-      <span>ACCOUNT BOARD</span>
+      <span class="brand-text">ACCOUNT BOARD</span>
     </div>
-    <div class="conn" id="conn" data-state="connecting" title="Connection to the board">
-      <span class="dot" aria-hidden="true"></span>
-      <span class="conn-label" id="conn-label">connecting…</span>
+    <div class="topbar-right">
+      <!-- Only rendered once Cloudflare Access has named the reader. -->
+      <span class="who" id="who" hidden></span>
+      <div class="conn" id="conn" data-state="connecting" title="Connection to the board">
+        <span class="dot" aria-hidden="true"></span>
+        <span class="conn-label" id="conn-label">connecting…</span>
+      </div>
     </div>
   </div>
 
-  <!-- EDIT ME: the account this board tracks, and one line about it. -->
   <header class="head">
-    <h1 id="account-id">users@vuepulse.com</h1>
-    <p class="sub">One shared login. One person at a time. Claim it before you use it.</p>
+    <h1>Shared accounts</h1>
+    <p class="sub">One person at a time on each one. Claim it before you use it,
+      release it when you are done.</p>
   </header>
 
   <!-- Shown only when setup is incomplete or sign-in fails. -->
@@ -53,66 +57,10 @@
     <p id="banner-body"></p>
   </div>
 
-  <section class="card" id="card" data-state="loading" aria-live="polite">
+  <!-- One card per account, plus the owner's add-account card at the end. -->
+  <section class="board" id="board" aria-live="polite" aria-label="Accounts"></section>
 
-    <!-- loading -->
-    <div class="view" id="view-loading">
-      <p class="state-word muted">Loading…</p>
-    </div>
-
-    <!-- free -->
-    <div class="view" id="view-free" hidden>
-      <p class="state-word">Available</p>
-      <p class="state-sub">Nobody is holding the account right now.</p>
-
-      <form class="claim-form" id="claim-form" novalidate>
-        <label class="field">
-          <span class="label">Your name</span>
-          <input id="name" name="name" type="text" maxlength="40" autocomplete="name"
-                 placeholder="e.g. Ayesha K." required>
-        </label>
-
-        <label class="field">
-          <span class="label">What for? <span class="muted">(optional)</span></span>
-          <input id="note" name="note" type="text" maxlength="120"
-                 placeholder="e.g. running the monthly export">
-        </label>
-
-        <label class="field field-short">
-          <span class="label">Expected minutes</span>
-          <input id="minutes" name="minutes" type="number" min="1" max="480" step="1" value="30" required>
-        </label>
-
-        <button class="btn btn-primary" id="claim-btn" type="submit">Claim</button>
-      </form>
-
-      <p class="msg" id="claim-msg" role="status"></p>
-    </div>
-
-    <!-- held / overdue -->
-    <div class="view" id="view-held" hidden>
-      <p class="state-word" id="held-word">In use</p>
-      <p class="holder" id="holder">—</p>
-      <p class="state-sub" id="held-meta"></p>
-      <p class="held-note" id="held-note" hidden></p>
-
-      <div class="actions">
-        <button class="btn btn-primary" id="release-btn" type="button" hidden>Release</button>
-
-        <form class="force-form" id="force-form" novalidate>
-          <label class="field">
-            <span class="label">Force release <span class="muted">— reason required</span></span>
-            <input id="force-reason" name="reason" type="text" maxlength="120"
-                   placeholder="e.g. Ayesha left for the day">
-          </label>
-          <button class="btn btn-quiet" id="force-btn" type="submit" disabled>Force release</button>
-        </form>
-      </div>
-
-      <p class="msg" id="held-msg" role="status"></p>
-    </div>
-
-  </section>
+  <p class="board-empty" id="board-empty" hidden></p>
 
   <section class="activity">
     <h2>Recent activity</h2>
@@ -122,10 +70,157 @@
   </section>
 
   <footer class="foot">
-    <p>Honour system — this board tells you who has the account, it does not enforce anything.</p>
+    <p>Honour system — this board tells you who has an account, it does not
+      enforce anything. The people listed on a card are a reminder of who it is
+      for, not a restriction on who can claim it.</p>
   </footer>
 
 </main>
+
+<!-- Cloned once per account. Elements are found by data-el rather than by id,
+     because there are now many cards and ids have to stay unique. -->
+<template id="card-template">
+  <article class="card" data-state="loading">
+
+    <header class="card-head">
+      <h2 class="card-label" data-el="label">—</h2>
+      <p class="card-desc" data-el="description" hidden></p>
+    </header>
+
+    <!-- free -->
+    <div class="view" data-el="view-free" hidden>
+      <p class="state-word state-big">Available</p>
+      <p class="state-sub">Nobody is holding this right now.</p>
+
+      <form class="claim-form" data-el="claim-form" novalidate>
+        <label class="field">
+          <span class="label">Your name</span>
+          <input data-el="name" type="text" maxlength="40" autocomplete="name"
+                 placeholder="e.g. Ayesha K." required>
+        </label>
+
+        <!-- Collapsed so the common path stays name-then-Claim. An empty
+             duration means "the usual", which app.js reads as 30 minutes. -->
+        <details class="more">
+          <summary>Add a note or change the duration</summary>
+          <label class="field">
+            <span class="label">What for? <span class="muted">(optional)</span></span>
+            <input data-el="note" type="text" maxlength="120"
+                   placeholder="e.g. running the monthly export">
+          </label>
+          <label class="field field-short">
+            <span class="label">Expected minutes</span>
+            <input data-el="minutes" type="number" min="1" max="480" step="1" value="30">
+          </label>
+        </details>
+
+        <button class="btn btn-primary" data-el="claim-btn" type="submit">Claim</button>
+      </form>
+
+      <p class="msg" data-el="claim-msg" role="status"></p>
+    </div>
+
+    <!-- held / overdue -->
+    <div class="view" data-el="view-held" hidden>
+      <p class="state-word" data-el="held-word">In use</p>
+      <p class="holder" data-el="holder">—</p>
+      <p class="state-sub" data-el="held-meta"></p>
+      <p class="held-note" data-el="held-note" hidden></p>
+
+      <div class="actions">
+        <button class="btn btn-primary" data-el="release-btn" type="button" hidden>Release</button>
+
+        <form class="force-form" data-el="force-form" novalidate>
+          <label class="field">
+            <span class="label">Force release <span class="muted">— reason required</span></span>
+            <input data-el="force-reason" type="text" maxlength="120"
+                   placeholder="e.g. Ayesha left for the day">
+          </label>
+          <button class="btn btn-quiet" data-el="force-btn" type="submit" disabled>Force release</button>
+        </form>
+      </div>
+
+      <p class="msg" data-el="held-msg" role="status"></p>
+    </div>
+
+    <!-- Who the account is for. Reference, not permission — everyone sees it,
+         only the owner edits it. -->
+    <div class="roster" data-el="roster" hidden>
+      <h3 class="roster-head">Who this is for</h3>
+      <ul class="roster-list" data-el="roster-list"></ul>
+
+      <details class="more" data-el="roster-more" hidden>
+        <summary>Add a person</summary>
+        <form data-el="roster-form" novalidate>
+          <label class="field">
+            <span class="label">Name</span>
+            <input data-el="roster-name" type="text" maxlength="40" placeholder="e.g. Ayesha K.">
+          </label>
+          <label class="field">
+            <span class="label">Note <span class="muted">(optional)</span></span>
+            <input data-el="roster-note" type="text" maxlength="60" placeholder="e.g. Finance">
+          </label>
+          <button class="btn btn-quiet btn-sm" data-el="roster-add" type="submit">Add</button>
+        </form>
+      </details>
+
+      <p class="msg" data-el="roster-msg" role="status"></p>
+    </div>
+
+    <!-- owner controls; never rendered for anyone else -->
+    <div class="card-admin" data-el="admin" hidden>
+      <div class="admin-links" data-el="admin-links">
+        <button class="link-btn" data-el="rename-btn" type="button">Rename</button>
+        <button class="link-btn link-danger" data-el="delete-btn" type="button">Delete</button>
+      </div>
+
+      <form class="admin-form" data-el="rename-form" hidden novalidate>
+        <label class="field">
+          <span class="label">Account name</span>
+          <input data-el="rename-label" type="text" maxlength="60" required>
+        </label>
+        <label class="field">
+          <span class="label">Description <span class="muted">(optional)</span></span>
+          <input data-el="rename-desc" type="text" maxlength="120">
+        </label>
+        <div class="admin-buttons">
+          <button class="btn btn-primary btn-sm" data-el="rename-save" type="submit">Save</button>
+          <button class="btn btn-quiet btn-sm" data-el="rename-cancel" type="button">Cancel</button>
+        </div>
+      </form>
+
+      <div class="admin-confirm" data-el="delete-confirm" hidden>
+        <p class="admin-warn" data-el="delete-warn"></p>
+        <div class="admin-buttons">
+          <button class="btn btn-danger btn-sm" data-el="delete-yes" type="button">Delete account</button>
+          <button class="btn btn-quiet btn-sm" data-el="delete-no" type="button">Cancel</button>
+        </div>
+      </div>
+
+      <p class="msg" data-el="admin-msg" role="status"></p>
+    </div>
+
+  </article>
+</template>
+
+<!-- The owner's add-account card, appended after the account cards. -->
+<template id="add-template">
+  <form class="card card-add" novalidate>
+    <h2 class="card-label">Add an account</h2>
+    <label class="field">
+      <span class="label">Account name</span>
+      <input data-el="add-label" type="text" maxlength="60"
+             placeholder="e.g. billing@vuepulse.com" required>
+    </label>
+    <label class="field">
+      <span class="label">Description <span class="muted">(optional)</span></span>
+      <input data-el="add-desc" type="text" maxlength="120"
+             placeholder="e.g. Stripe dashboard">
+    </label>
+    <button class="btn btn-primary" data-el="add-btn" type="submit">Add account</button>
+    <p class="msg" data-el="add-msg" role="status"></p>
+  </form>
+</template>
 
 <script type="module" src="app.js"></script>
 </body>

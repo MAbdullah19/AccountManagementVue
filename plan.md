@@ -127,17 +127,22 @@ v1: the log has to stay readable after the thing it refers to is gone.
 
 ### Migration of the live database
 
-There is real data in `/lock` on the deployed project. Console work, once:
+Simpler than first planned. Account ids are push keys, so there is no sensible
+id to move the old `/lock` *to* — and the only thing that node holds is a
+transient "who has it right now", which is worth nothing tomorrow morning.
 
-- [ ] Create `/accounts/primary` with `label: "users@vuepulse.com"` and a
-      `createdAt` number.
-- [ ] Move the existing `/lock` object to `/locks/primary`.
-- [ ] Delete the old `/lock`.
-- [ ] Publish the updated `database.rules.json`.
+So: do not migrate the lock. Recreate the accounts through the UI and bin the
+old node.
 
-Until this is done the deployed board shows the empty state. The app does not
-migrate anything itself — a client-side migration racing across several browsers
-is a worse problem than four clicks in the console.
+- [ ] **Realtime Database → Rules →** paste `database.rules.json` and publish.
+      Nothing works before this: paths not named in the rules are denied, so the
+      board reports `permission_denied at /locks` until it is done.
+- [ ] Open the board as the owner and add `users@vuepulse.com` with the
+      **Add an account** card, plus any others.
+- [ ] **Data →** delete the now-unused `/lock` node.
+
+The app does not migrate anything itself. A client-side migration racing across
+several browsers is a worse problem than three clicks in the console.
 
 ---
 
@@ -162,37 +167,38 @@ until the current one is verified.
 - [x] *Done when:* the single-account board looks new and behaves identically
 - [x] Commit
 
-### Phase 3 — multiple accounts
-- [ ] `accounts.js` — read accounts, create, rename, delete
-- [ ] `lock.js` takes an `accountId`; every path becomes `locks/{id}`
-- [ ] `<template>` for a card, cloned per account
-- [ ] **Cards update in place.** A lock change on one card must not rebuild the
-      others — someone typing their name into card B must not lose it because
-      card A changed hands. This is the main correctness risk in the rewrite.
-- [ ] Per-card claim / release / force-release, per-card messages
-- [ ] Log lines name their account
-- [ ] Empty state when there are no accounts yet
-- [ ] *Done when:* two accounts can be held independently in two windows
-- [ ] Commit
+### Phase 3 + 4 — multiple accounts, and the owner
 
-### Phase 4 — the owner
-- [ ] `identity.js` — `get-identity`, allowlist, localhost fallback
-- [ ] Admin-only "Add account" form
-- [ ] Rename and delete an account, delete guarded when the account is held
-- [ ] Nothing admin-shaped renders at all for a non-admin
-- [ ] *Done when:* the controls appear for the owner and are absent otherwise
-- [ ] Commit
+Landed together. Phase 3 on its own could not be exercised: with no accounts in
+the database and no UI to create one, the board would have rendered an empty
+grid and nothing else. The admin controls *are* the way to get test data in.
+
+- [x] `accounts.js` — create, rename, delete
+- [x] `lock.js` takes an `account`; every path becomes `locks/{id}`
+- [x] `<template>` for a card, cloned per account
+- [x] **Cards update in place.** Values are only ever written into an input when
+      it is empty, and cards are reordered only when the order is genuinely
+      wrong — moving a node blurs whatever is focused inside it.
+- [x] Per-card claim / release / force-release, per-card messages
+- [x] Log lines name their account, and v1 entries still read
+- [x] Empty state, told apart from "not loaded yet"
+- [x] `identity.js` — `get-identity`, allowlist, localhost fallback
+- [x] Add / rename / delete an account; delete warns when it is held
+- [x] Nothing admin-shaped renders at all for a non-admin
+- [x] Commit
 
 ### Phase 5 — the roster
-- [ ] Allowed-user list per account, visible to everyone
-- [ ] Owner can add and remove people
-- [ ] Reads as reference, not as permission
-- [ ] *Done when:* a teammate can see which account is theirs without asking
-- [ ] Commit
+- [x] Allowed-user list per account, visible to everyone
+- [x] Owner can add and remove people
+- [x] Reads as reference, not as permission
+- [x] Commit
 
 ### Phase 6 — rules, docs, verification
-- [ ] `database.rules.json` covers `/accounts`, `/locks`, the new `/log` fields
-- [ ] README: new data model, migration steps, the admin caveat from §2.2
+- [x] `database.rules.json` covers `/accounts`, `/locks`, the roster and the new
+      `/log` fields
+- [x] README: new data model, migration steps, the admin caveat from §2.2
+- [ ] **Publish the rules and run the migration above.** Blocked on the console;
+      nothing below can be ticked until it is done.
 - [ ] Work the testing checklist (§5) in two browser profiles
 - [ ] Commit and push
 
@@ -202,6 +208,21 @@ until the current one is verified.
 
 Same approach as v1: no test runner, the checklist is the suite, run in two real
 browser profiles rather than two tabs, because tabs share `localStorage`.
+
+Already verified, driving real Chrome over the DevTools Protocol:
+
+- [x] Every module parses, the page loads, anonymous sign-in succeeds and the
+      connection indicator reaches `live`
+- [x] The owner is recognised and the add-account card renders; `Loading…` and
+      the empty state are distinguishable
+- [x] No console errors and no uncaught exceptions on load
+- [x] The log renders, and v1 entries with no `accountLabel` fall back to
+      "the account" rather than printing `undefined`
+- [x] No horizontal overflow at 1280px or at 360px
+- [x] Every card state — available, in use, overdue, empty roster, populated
+      roster, owner controls — renders correctly via `preview.html`
+
+Still to do, and blocked on the rules being published:
 
 Carried over from v1 and still required, now per-account:
 
@@ -233,3 +254,8 @@ New, and the ones most likely to actually break:
 - **Enforced admin via Firebase Google sign-in.** See §2.2.
 - **Per-account activity history.** The log is global and filtering it by
   account is a display change, not a model change. Wait for someone to ask.
+- **Collapsing Force release behind a disclosure.** It is the tallest thing on
+  an in-use card and the rarest thing anyone does, so the cards would shrink a
+  lot. Not done, because v1 §6.2 deliberately keeps force release in plain
+  sight and one v1 reversal per release is enough. Revisit if the board grows
+  past about eight accounts and the scrolling starts to hurt.

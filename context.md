@@ -23,7 +23,7 @@ Last updated: 2026-08-01.
 ## Files
 
 ```
-index.html          markup, card template, inline critical styles
+index.html          markup, card templates, inline critical styles
 styles.css          all styling and the design tokens
 app.js              startup, wiring, board rendering
 lock.js             claim / release / force-release transactions
@@ -32,11 +32,19 @@ identity.js         Cloudflare Access identity + admin check
 clock.js            server time offset and all time formatting
 firebase-config.js  firebaseConfig (committed on purpose — see README)
 database.rules.json rules to paste into the Firebase console
+preview.html        every card state, rendered without Firebase
 plan.md             v2 plan and progress
 context.md          this file
 README.md           setup, deploy, and the reasoning worth keeping
 account-board-implementation-plan.md   v1 spec, kept as history
 ```
+
+`preview.html` pulls the real `<template>` elements out of `index.html` and
+fills them with fixtures, so available / in use / overdue / empty roster can all
+be looked at side by side without touching the live database. It earned its
+place immediately: it caught `.admin-form { display: flex }` quietly overriding
+the `hidden` attribute, which only worked because of the `!important` in
+`index.html`'s inline block.
 
 Flat on purpose. No `src/`, no build step, no npm. The Firebase SDK is imported
 from the CDN at a **pinned** version (`12.16.0`).
@@ -72,8 +80,10 @@ These come from v1 and have not been revisited:
 
 ## Open items
 
-- [ ] Live database still holds the v1 `/lock`; the migration in `plan.md` §3 has
-      not been run.
+- [ ] **The v2 rules are not published yet, and nothing works until they are.**
+      Firebase denies any path the rules do not name, so the board currently
+      reports `permission_denied at /locks`. Paste `database.rules.json` into
+      Realtime Database → Rules, then run the migration in `plan.md` §3.
 - [ ] One-time PIN is enabled and the login page serves an email field, but
       **nobody has completed a real PIN round-trip from a second person's inbox.**
       Do that before telling the team the board is ready.

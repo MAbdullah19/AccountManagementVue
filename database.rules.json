@@ -1,22 +1,45 @@
 {
   "rules": {
-    "lock": {
+    "accounts": {
       ".read": "auth != null",
-      ".write": "auth != null",
-      "status": {
-        ".validate": "newData.isString() && (newData.val() === 'free' || newData.val() === 'held')"
-      },
-      "holder": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 40" },
-      "note": { ".validate": "newData.isString() && newData.val().length <= 120" },
-      "claimedAt": { ".validate": "newData.isNumber()" },
-      "expectedMinutes": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 480" },
-      "$other": { ".validate": false }
+      "$accountId": {
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['label', 'createdAt'])",
+        "label": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60" },
+        "description": { ".validate": "newData.isString() && newData.val().length <= 120" },
+        "createdAt": { ".validate": "newData.isNumber()" },
+        "users": {
+          "$userId": {
+            ".validate": "newData.hasChildren(['name'])",
+            "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 40" },
+            "note": { ".validate": "newData.isString() && newData.val().length <= 60" },
+            "$other": { ".validate": false }
+          }
+        },
+        "$other": { ".validate": false }
+      }
+    },
+    "locks": {
+      ".read": "auth != null",
+      "$accountId": {
+        ".write": "auth != null",
+        "status": {
+          ".validate": "newData.isString() && (newData.val() === 'free' || newData.val() === 'held')"
+        },
+        "holder": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 40" },
+        "note": { ".validate": "newData.isString() && newData.val().length <= 120" },
+        "claimedAt": { ".validate": "newData.isNumber()" },
+        "expectedMinutes": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 480" },
+        "$other": { ".validate": false }
+      }
     },
     "log": {
       ".read": "auth != null",
       "$entry": {
         ".write": "auth != null && !data.exists()",
-        ".validate": "newData.hasChildren(['name','action','at'])"
+        ".validate": "newData.hasChildren(['name', 'action', 'at'])",
+        "accountId": { ".validate": "newData.isString() && newData.val().length <= 200" },
+        "accountLabel": { ".validate": "newData.isString() && newData.val().length <= 60" }
       }
     }
   }

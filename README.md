@@ -1,14 +1,21 @@
 # Shared Account Status Board
 
-A single page that answers one question for a small team: **is the shared account
-currently in use, and by whom?**
+A single page that answers one question for a small team: **which shared
+accounts are in use right now, and by whom?**
 
-The workplace has one login for a service and only one person can use it at a
-time. There is no technical way to enforce that, and the team already
-understands the rule. This board exists purely to broadcast the current state so
-nobody logs in on top of someone else.
+The workplace has a handful of logins that only one person can use at a time.
+There is no technical way to enforce that, and the team already understands the
+rule. This board exists purely to broadcast the current state so nobody logs in
+on top of someone else.
 
 It is an **honour-system checkout board, not an access control system.**
+
+Every account is a card. One person — the owner, recognised by the email
+Cloudflare Access already authenticated — can add, rename and delete accounts,
+and pin a list of the people each one is meant for.
+
+> **The owner check is a tidy-up, not a permission.** See
+> [Who counts as the owner](#who-counts-as-the-owner) before assuming otherwise.
 
 ## Why it works this way
 
@@ -21,26 +28,35 @@ This is the part most likely to be relitigated by whoever inherits it, so:
   while working and release when they are done. Auto-release would free the
   account out from under someone whose Wi-Fi blipped, which is the exact failure
   the board exists to prevent.
-- **No accounts, passwords or roles.** People type their name; it is remembered
-  in `localStorage` afterwards. Anyone who can reach the page is already trusted
-  — access is handled at the edge by Cloudflare Access, not by this code.
+- **No logins, no passwords, and exactly one role.** People type their name; it
+  is remembered in `localStorage` afterwards. Anyone who can reach the page is
+  already trusted — access is handled at the edge by Cloudflare Access, not by
+  this code. The one exception is the owner, who gets the account-management
+  controls, and even that is a hidden-buttons check rather than a real
+  permission. See [Who counts as the owner](#who-counts-as-the-owner).
 - **Force release is always available and never behind a confirm dialog.** The
   friction is the required reason field, and the accountability is the log entry
   naming both people. A dialog would train everyone to click through it.
-- **Overdue is only a colour change.** When a hold runs past its estimate the
-  card turns amber and says "still in use?". Nothing auto-releases and nothing is
-  blocked. It just makes a forgotten release legible to the room.
+- **Overdue is only a shade change.** When a hold runs past its estimate the card
+  darkens towards black and the word changes to "Overdue". Nothing auto-releases
+  and nothing is blocked. It just makes a forgotten release legible to the room.
+- **The roster on a card is reference, not permission.** It answers "which login
+  am I supposed to use?" for a new teammate. It does not restrict who can claim
+  what, and it must not be made to look like it does.
 
 ## How the team uses it
 
-Free: type your name, optionally what you are doing, and how long you expect to
-need it. One click on **Claim**. Your name is remembered, so next time claiming
-is one click.
+Available: type your name and click **Claim**. Your name is remembered, so next
+time it really is one click. A note and a different duration are behind **Add a
+note or change the duration**; leaving the duration alone means 30 minutes.
 
-Held: the card is red with the holder's name, when they started, a live elapsed
-timer, and their estimated finish. If it is you, there is a **Release** button.
-If it is not, there is **Force release** — type why, and both names go into the
-activity log.
+In use: the card is red with the holder's name, when they started, a live
+elapsed timer, and their estimated finish. If it is you, there is a **Release**
+button. If it is not, there is **Force release** — type why, and both names go
+into the activity log.
+
+The tab title carries the whole board — `○ 3 of 5 free` — so it is readable
+without switching to it.
 
 ## Stack
 
@@ -51,6 +67,7 @@ activity log.
 | Auth | Firebase Anonymous Auth | Not to identify people — purely so the database rules can require `auth != null` and shut out internet scanners. Invisible to the user. |
 | Hosting | Cloudflare Pages | Free, deploys from **private** repos, and pairs with Cloudflare Access. |
 | Access control | Cloudflare Access | Keeps colleagues' names off the public internet, with no code. |
+| Owner identity | Cloudflare Access `get-identity` | The reader's email is already authenticated at the edge, so recognising the owner costs one `fetch` and no second login. Not enforceable in the database rules — see below. |
 
 There is deliberately **no npm, bundler, framework, CSS framework, TypeScript or
 test runner.** If you find yourself wanting one, something has been
@@ -68,16 +85,25 @@ recorded here so it does not need to be had again.
 ## Layout
 
 ```
-index.html          markup + inline critical styles
-styles.css          all styling
+index.html          markup, card templates + inline critical styles
+styles.css          all styling and the design tokens
 app.js              entry point, wiring, rendering, event handlers
 lock.js             claim / release / force-release transactions
+accounts.js         account metadata and roster writes
+identity.js         Cloudflare Access identity + the owner check
 clock.js            server time offset + all time formatting
 firebase-config.js  firebaseConfig object (committed — see below)
 database.rules.json the rules to paste into the Firebase console
+preview.html        every card state, rendered without Firebase
 ```
 
 Flat on purpose. No `src/`, no `components/`, no `utils/`.
+
+`preview.html` reads the real `<template>` elements out of `index.html` and
+fills them with fixtures, so available / in use / overdue / rosters / owner
+controls can all be looked at at once without touching live data. Open it at
+`/preview.html`. It is a design fixture, not a test runner — there is still no
+test runner, and there should not be one.
 
 > **The Firebase web API key is not a secret.** It identifies the project; it does
 > not authorise anything, and it is designed to ship in client code. Security
@@ -110,41 +136,92 @@ All of this is console work — none of it can be scripted from this repo.
    `databaseURL` is required. If it is missing from the snippet the console gave
    you, the Realtime Database was not created yet — go back to step 2.
 5. **Realtime Database → Rules →** paste the contents of `database.rules.json`
-   and publish.
-6. **Realtime Database → Data →** create `/lock` with a single child
-   `status` = `"free"` (a string). The app handles a missing `/lock` anyway, but
-   seeding it means the first person to open the board sees the right thing.
-7. Edit the account name and description at the top of `index.html` — they are
-   hardcoded there, marked with an `EDIT ME` comment.
+   and publish. **Nothing works before this.** Firebase denies every path the
+   rules do not name, so the board reports `permission_denied at /locks` and
+   shows an empty grid until the v2 rules are live.
+6. Set your address in `ADMIN_EMAILS` at the top of `identity.js`.
+7. Open the board and add your accounts with the **Add an account** card. There
+   is nothing to seed by hand and nothing to edit in `index.html` — the account
+   names used to be hardcoded there and are now data.
+
+### Upgrading a v1 board
+
+v1 kept a single lock at `/lock`. Account ids are push keys now, so there is no
+sensible id to move that node to — and all it holds is who has it *right now*,
+which is worth nothing tomorrow. Do not migrate it:
+
+1. Publish the new rules (step 5).
+2. Add the accounts through the UI.
+3. Delete the stale `/lock` node under **Realtime Database → Data**.
+
+Old `/log` entries are kept and still render. They predate multiple accounts and
+carry no `accountLabel`, so they read "claimed the account" rather than naming
+one.
 
 ## Data model
 
-Exactly one lock record plus an append-only log. Resist adding more.
-
 ```
-/lock
+/accounts/{accountId}
+  label          string, 1–60    e.g. "users@vuepulse.com"
+  description    string, 0–120   optional, one line about the account
+  createdAt      number, epoch ms
+  users/{userId}
+    name         string, 1–40    a person this account is meant for
+    note         string, 0–60    optional — role, team, "primary"
+
+/locks/{accountId}
   status           "free" | "held"
-  holder           string, 1–40 chars       (absent when free)
-  note             string, 0–120 chars      (optional — what they're doing)
+  holder           string, 1–40             (absent when free)
+  note             string, 0–120            (optional — what they're doing)
   claimedAt        number, epoch ms         (absent when free)
   expectedMinutes  number, 1–480            (absent when free)
 
 /log/{pushId}
-  name             string    — who performed the action
-  action           "claimed" | "released" | "force-released"
-  at               number, epoch ms
-  reason           string    — required for force-released, absent otherwise
-  heldBy           string    — force-released only: who was holding it
+  accountId      string    — which account this happened to
+  accountLabel   string    — denormalised; see below
+  name           string    — who performed the action
+  action         "claimed" | "released" | "force-released"
+  at             number, epoch ms
+  reason         string    — required for force-released, absent otherwise
+  heldBy         string    — force-released only: who was holding it
 ```
 
-`heldBy` is the one addition to the model as originally specified. A force
-release has to record both names to be accountable, and the log entry is the only
-place that information survives.
+**Locks live outside `/accounts` on purpose.** Account metadata is owner-written
+and changes almost never; locks are written by everyone, constantly, through
+transactions. Nesting them would put a transaction path inside a node the owner
+also rewrites, and force both under one `.write` rule.
+
+**`accountLabel` is denormalised into the log on purpose**, for the same reason
+`heldBy` is: the log has to stay readable after the thing it refers to is gone.
+Deleting an account deletes its card and its lock and leaves its history intact.
 
 In the rules, `!data.exists()` on `/log/$entry` makes the log **append-only**:
 entries can be created but never edited or deleted from the client. That is the
-entire point of having a log. `$other: { ".validate": false }` on `/lock` means a
-client cannot invent fields there.
+entire point of having a log. `$other: { ".validate": false }` on an account and
+on a lock means a client cannot invent fields there.
+
+## Who counts as the owner
+
+`identity.js` fetches `/cdn-cgi/access/get-identity`, which returns the email
+Cloudflare Access authenticated at the edge, and compares it to `ADMIN_EMAILS`.
+The address is genuine — Access proved it before the page loaded.
+
+**What is not enforced is what the board does with it.** Firebase auth here is
+anonymous, so the database rules cannot tell the owner from anyone else, and a
+teammate with devtools can still write to `/accounts`. The owner check hides
+buttons; it does not defend data.
+
+That is consistent with everything else here — force release is deliberately
+available to everyone — but do not describe it as security, and do not build
+anything on top of it that needs to be. If the roster ever has to be
+authoritative, switch to Firebase Google sign-in for the owner so
+`auth.token.email` can be checked in the rules, and accept the second auth path
+through the app. This trade was made deliberately; see `plan.md` §2.2.
+
+`get-identity` does not exist off the Access edge, so on `localhost` there is a
+development fallback: `?admin=1` turns the owner controls on for the session and
+`?admin=0` turns them off. It is scoped to loopback hostnames and cannot be
+triggered on the deployed site.
 
 ## Running locally
 
@@ -246,7 +323,15 @@ driven over the DevTools Protocol — separate profiles rather than two tabs,
 because tabs share `localStorage` and cannot represent two people with different
 saved names.
 
-Verified end to end against the live database:
+> **Read this before trusting the ticks below.** Everything in this section was
+> verified against the **v1 single-account** code. The multi-account rewrite
+> touched every one of these paths — `lock.js` now takes an account, and the
+> board renders cloned cards rather than one hardcoded card. The behaviour is
+> meant to be identical and the transactions are unchanged in shape, but *these
+> boxes have not been re-run since*. The current checklist, and what has been
+> re-verified so far, is in `plan.md` §5.
+
+Verified end to end against the live database, against v1:
 
 - [x] Claim from window A → window B updates without a reload
 - [x] Release from A → B updates
@@ -323,6 +408,11 @@ on `visibilitychange` covers a listener that died while the laptop was asleep.
 
 ## Limits and gotchas
 
+- **Firebase denies any path the rules do not name.** Upgrading the app without
+  publishing the matching `database.rules.json` does not degrade gracefully — the
+  board loads, signs in, reports `live`, and then shows an empty grid with
+  `permission_denied at /locks`. It looks like a data problem and is a rules
+  problem.
 - **Authorized domains** — see deploy step 3. The single most common failure.
 - **The Access login page must offer One-time PIN.** As of 2026-08-01 the login
   screen for this app offers only **Cloudflare** as a sign-in method, which
@@ -361,6 +451,16 @@ of it is needed.
   board tells me", which is the real adoption unlock. About 15 lines, and the
   strongest candidate for the first addition.
 - **A daily usage summary** from the log.
-- **Multiple accounts on one board** — plausible, but the data model would move
-  from `/lock` to `/locks/{accountId}`. Don't pre-build for it; the migration is
-  small.
+- **Per-account activity history.** The log is global. Filtering it by account is
+  a display change, not a model change — every entry already carries its
+  `accountId`. Wait for someone to ask.
+- **An enforced owner**, via Firebase Google sign-in. See
+  [Who counts as the owner](#who-counts-as-the-owner).
+- **Collapsing Force release behind a disclosure.** It is the tallest thing on an
+  in-use card and the rarest thing anyone does. Not done, because force release
+  is deliberately kept in plain sight. Revisit if the board passes about eight
+  accounts and the scrolling starts to hurt.
+
+**Multiple accounts on one board** was on this list in v1, with a note that the
+model would move from `/lock` to `/locks/{accountId}`. It did, and it was small,
+exactly as predicted.
