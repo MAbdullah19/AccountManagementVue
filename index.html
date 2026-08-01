@@ -4,12 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>VuePulse Account Board</title>
-<meta name="color-scheme" content="light">
+<meta name="color-scheme" content="light dark">
 <!-- The real mark, so the tab is recognisable at a glance in a pinned window.
      One file rather than the old inline square, which is why logo.png is the
      single .png the repo does not ignore. -->
 <link rel="icon" type="image/png" href="logo.png">
 <link rel="apple-touch-icon" href="logo.png">
+<!-- The theme has to be on <html> before anything paints, or a dark-theme
+     reader gets a white flash on every load. Inline and blocking on purpose;
+     theme.js owns everything after this and shares the key. -->
+<script>
+  try {
+    var t = localStorage.getItem('account-board:theme');
+    document.documentElement.dataset.theme =
+      t === 'light' || t === 'dark' ? t
+        : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  } catch (e) {
+    document.documentElement.dataset.theme = 'light';
+  }
+</script>
 <!-- Critical styles: layout skeleton only, so the board never flashes unstyled. -->
 <style>
   :root { --w: 1080px; }
@@ -20,6 +33,7 @@
     background: #fff;
     color: #1a1a1a;
   }
+  :root[data-theme="dark"] body { background: #0e0e0f; color: #f4f4f5; }
   .shell { max-width: var(--w); margin: 0 auto; padding: 28px 20px 56px; }
   .card { border: 1px solid #e4e4e7; border-radius: 18px; padding: 22px; }
   [hidden] { display: none !important; }
@@ -36,8 +50,11 @@
         <span class="brand-mark" aria-hidden="true"></span>
         <span class="brand-text">ACCOUNT BOARD</span>
       </div>
-      <!-- No link to activity.html on purpose: the log is the owner's, and an
-           unlinked page is one fewer thing for everyone else to bounce off. -->
+      <!-- Shown to the owner only, by app.js. The log is theirs, and the
+           original reason for leaving it unlinked — one fewer thing for
+           everyone else to bounce off — is kept by never rendering it for
+           anyone else, rather than by hiding it from the person it is for. -->
+      <nav class="nav" id="nav" hidden><a href="./activity.html">Activity</a></nav>
     </div>
     <div class="topbar-right">
       <!-- Only rendered once Cloudflare Access has named the reader. -->
@@ -46,6 +63,15 @@
         <span class="dot" aria-hidden="true"></span>
         <span class="conn-label" id="conn-label">connecting…</span>
       </div>
+      <button class="icon-btn" id="theme-btn" type="button" aria-label="Switch theme">
+        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20.2 14.6A8.5 8.5 0 0 1 9.4 3.8a8.5 8.5 0 1 0 10.8 10.8Z"/>
+        </svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4.1"/>
+          <path d="M12 2.7v2.1M12 19.2v2.1M4.4 4.4l1.5 1.5M18.1 18.1l1.5 1.5M2.7 12h2.1M19.2 12h2.1M4.4 19.6l1.5-1.5M18.1 5.9l1.5-1.5"/>
+        </svg>
+      </button>
     </div>
   </div>
 
@@ -54,6 +80,26 @@
     <p class="sub">One person at a time on each account. Claim it before you use
       it, release it when you are done.</p>
   </header>
+
+  <!-- The board answers "is this one free?". This answers "is anything free?",
+       which is the question people arrive with. Shown by app.js only once there
+       are enough accounts for the cards to stop being their own summary. -->
+  <section class="summary" id="summary" hidden aria-label="Board summary">
+    <p class="summary-figure">
+      <span class="summary-count" id="summary-count">0</span>
+      <span class="summary-of" id="summary-of"></span>
+    </p>
+    <div class="meter" id="meter" aria-hidden="true">
+      <div class="meter-seg" data-kind="free"></div>
+      <div class="meter-seg" data-kind="held"></div>
+      <div class="meter-seg" data-kind="overdue"></div>
+    </div>
+    <ul class="legend" id="legend" aria-hidden="true">
+      <li data-kind="free"><span class="swatch"></span>Available <b id="legend-free">0</b></li>
+      <li data-kind="held"><span class="swatch"></span>In use <b id="legend-held">0</b></li>
+      <li data-kind="overdue" id="legend-overdue-item" hidden><span class="swatch"></span>Overdue <b id="legend-overdue">0</b></li>
+    </ul>
+  </section>
 
   <!-- Shown only when setup is incomplete or sign-in fails. -->
   <div class="banner" id="banner" hidden role="alert">
@@ -110,6 +156,14 @@
       <p class="state-word" data-el="held-word">In use</p>
       <p class="holder" data-el="holder"></p>
       <p class="state-sub" data-el="held-meta"></p>
+
+      <!-- The same numbers held-meta spells out, as a shape you can read from
+           across the room. aria-hidden because it repeats the sentence above
+           it and adds nothing for a screen reader. -->
+      <div class="timebar" data-el="timebar" hidden aria-hidden="true">
+        <div class="timebar-fill" data-el="timebar-fill"></div>
+      </div>
+
       <p class="held-note" data-el="held-note" hidden></p>
 
       <div class="actions">
@@ -211,6 +265,18 @@
     <button class="btn btn-primary" data-el="add-btn" type="submit">Add account</button>
     <p class="msg" data-el="add-msg" role="status"></p>
   </form>
+</template>
+
+<!-- What the board looks like before the first snapshot lands. A card-shaped
+     ghost says "this is loading"; the line of grey text it replaces said
+     "there is nothing here", which is the opposite. -->
+<template id="skeleton-template">
+  <div class="skel" aria-hidden="true">
+    <div class="skel-line w-60"></div>
+    <div class="skel-line w-40"></div>
+    <div class="skel-line tall w-80"></div>
+    <div class="skel-line block"></div>
+  </div>
 </template>
 
 <script type="module" src="app.js"></script>

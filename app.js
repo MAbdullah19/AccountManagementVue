@@ -10,11 +10,20 @@ import { claim, release, forceRelease } from './lock.js';
 import { createAccount, renameAccount, deleteAccount, addUser, removeUser } from './accounts.js';
 import { loadIdentity } from './identity.js';
 import { connect, showBanner, watchConnection, renderWho } from './boot.js';
+import { initTheme } from './theme.js';
 
 const el = (id) => document.getElementById(id);
 
 const NAME_KEY = 'account-board:name';
 const DEFAULT_MINUTES = 30;
+
+// Below this the cards already are the summary, and a strip saying "1 of 1
+// available" above a single card is just the card again in smaller type.
+const SUMMARY_MIN_ACCOUNTS = 2;
+
+// How many ghost cards to show while the first snapshot is in flight. Three
+// fills a desktop row without promising a number the board may not have.
+const SKELETON_CARDS = 3;
 
 // Set once in start(). Handlers are wired per card and would otherwise all have
 // to close over it.
@@ -36,6 +45,7 @@ const state = {
 // halfway through typing into another.
 const cards = new Map();
 let addCard = null;
+let skeletons = [];
 
 /* ------------------------------------------------------------ saved name */
 
@@ -138,6 +148,35 @@ function readAccounts(snap) {
   // Oldest first, so the board does not reshuffle itself as accounts are added.
   list.sort((a, b) => a.createdAt - b.createdAt || a.label.localeCompare(b.label));
   return list;
+}
+
+/* ----------------------------------------------------------------- motion */
+
+// The entrance is filled `both`, so the card keeps the animation's final
+// transform after it has run — which would then beat the hover lift, because a
+// filled animation outranks a plain declaration. Dropping the class once it is
+// done hands the card back to CSS.
+//
+// The target check matters: animationend bubbles, and everything inside a card
+// that fades in would otherwise strip the class mid-flight.
+function playEntrance(root, index) {
+  root.style.setProperty('--i', String(index));
+  root.classList.add('card-enter');
+
+  root.addEventListener('animationend', function done(event) {
+    if (event.target !== root) return;
+    root.classList.remove('card-enter');
+    root.removeEventListener('animationend', done);
+  });
+}
+
+// Restarting a CSS animation needs the class gone for one frame. Reading
+// offsetWidth is what forces that reflow, so the read is the point and not a
+// leftover — it must not be tidied away.
+function flash(root) {
+  root.classList.remove('card-changed');
+  void root.offsetWidth;
+  root.classList.add('card-changed');
 }
 
 /* ------------------------------------------------------------------ cards */
@@ -460,6 +499,11 @@ function updateCard(card, account, lock) {
   if (status !== card.lastStatus) {
     setMsg(els['claim-msg'], '');
     setMsg(els['held-msg'], '');
+    // An account changing hands is the one event this page exists to report,
+    // and it can land while the reader is looking at a different card. Not on
+    // the very first render, though: a board that flashes every card on load
+    // teaches people to ignore the flash that means something.
+    if (card.lastStatus !== null) flash(card.root);
     card.lastStatus = status;
   }
 
@@ -514,11 +558,31 @@ function renderHeld(card) {
   renderHeldMeta(card);
 }
 
+// How much of the claimed time has gone, as a bar. Nothing here is information
+// held-meta does not already spell out — it is for the glance from across the
+// room, which is why the markup is aria-hidden.
+function renderTimebar(card) {
+  const lock = card.lock;
+  const bar = card.els.timebar;
+
+  // No estimate, no bar. An empty track would imply a deadline nobody set.
+  const expected = typeof lock?.expectedMinutes === 'number' ? lock.expectedMinutes : 0;
+  if (!expected || typeof lock.claimedAt !== 'number') {
+    bar.hidden = true;
+    return;
+  }
+
+  const ratio = (serverNow() - lock.claimedAt) / (expected * 60000);
+  bar.hidden = false;
+  card.els['timebar-fill'].style.width = `${Math.min(100, Math.max(0, ratio * 100))}%`;
+}
+
 // Split out from renderHeld because the ticking timer re-runs only this part.
 function renderHeldMeta(card) {
   const lock = card.lock;
   if (!isHeld(lock) || typeof lock.claimedAt !== 'number') {
     card.els['held-meta'].textContent = '';
+    card.els.timebar.hidden = true;
     return;
   }
 
@@ -541,6 +605,7 @@ function renderHeldMeta(card) {
   }
 
   card.els['held-meta'].textContent = parts.join(' · ');
+  renderTimebar(card);
 }
 
 /* --------------------------------------------------------- add-account card */
@@ -586,6 +651,14 @@ function renderBoard() {
   const board = el('board');
   const seen = new Set();
 
+  syncSkeleton();
+
+  // Counted separately from the loop index so the stagger is over the cards
+  // that are actually new. On the first load that is all of them; on the
+  // hundredth it is the one account somebody just added, which should arrive
+  // immediately rather than after five slots of empty delay.
+  let fresh = 0;
+
   for (const account of state.accounts) {
     seen.add(account.id);
     let card = cards.get(account.id);
@@ -593,6 +666,8 @@ function renderBoard() {
       card = buildCard(account.id);
       cards.set(account.id, card);
       board.append(card.root);
+      playEntrance(card.root, fresh);
+      fresh += 1;
     }
     updateCard(card, account, state.locks[account.id]);
   }
@@ -605,9 +680,32 @@ function renderBoard() {
 
   syncAddCard(board);
   syncOrder(board);
+  renderSummary();
   renderEmptyState();
   updateTitle();
 }
+
+// Card-shaped ghosts for as long as there is no board to show yet. They are not
+// tracked per id like real cards because there is nothing to track: they go up
+// once and come down once.
+function showSkeleton() {
+  if (skeletons.length) return;
+  const board = el('board');
+  const template = el('skeleton-template');
+
+  for (let i = 0; i < SKELETON_CARDS; i += 1) {
+    const node = template.content.firstElementChild.cloneNode(true);
+    skeletons.push(node);
+    board.append(node);
+  }
+}
+
+function clearSkeleton() {
+  for (const node of skeletons) node.remove();
+  skeletons = [];
+}
+
+const syncSkeleton = () => (state.accountsLoaded ? clearSkeleton() : showSkeleton());
 
 function syncAddCard(board) {
   if (state.identity.isAdmin && !addCard) {
@@ -623,7 +721,7 @@ function syncAddCard(board) {
 // touched when the order is genuinely wrong — which, since cards are appended
 // in sorted order as they are created, is close to never.
 function syncOrder(board) {
-  const wanted = state.accounts.map((account) => cards.get(account.id).root);
+  const wanted = skeletons.concat(state.accounts.map((account) => cards.get(account.id).root));
   if (addCard) wanted.push(addCard.root);
 
   const current = Array.from(board.children);
@@ -632,14 +730,59 @@ function syncOrder(board) {
   board.append(...wanted);
 }
 
+// One line for the whole board, above it: how many accounts you could walk up
+// to right now. The cards answer that one at a time; this answers it before
+// any of them have been read.
+function renderSummary() {
+  const node = el('summary');
+  const total = state.accounts.length;
+
+  if (!state.accountsLoaded || total < SUMMARY_MIN_ACCOUNTS) {
+    node.hidden = true;
+    return;
+  }
+
+  let held = 0;
+  let overdue = 0;
+
+  for (const account of state.accounts) {
+    const lock = state.locks[account.id];
+    if (!isHeld(lock)) continue;
+    if (isOverdue(lock)) overdue += 1;
+    else held += 1;
+  }
+
+  const free = total - held - overdue;
+
+  node.hidden = false;
+  // Nothing free is the one state worth colouring, and it gets the same red
+  // that means "in use" on every card.
+  node.dataset.full = String(free === 0);
+
+  el('summary-count').textContent = String(free);
+  el('summary-of').textContent = `of ${total} accounts free`;
+
+  el('legend-free').textContent = String(free);
+  el('legend-held').textContent = String(held);
+  el('legend-overdue').textContent = String(overdue);
+  // A permanent "Overdue 0" is a legend entry for a colour that is not on the
+  // page. It appears when there is something to explain.
+  el('legend-overdue-item').hidden = overdue === 0;
+
+  const counts = { free, held, overdue };
+  for (const seg of el('meter').children) {
+    seg.style.width = `${(counts[seg.dataset.kind] / total) * 100}%`;
+  }
+}
+
 function renderEmptyState() {
   const node = el('board-empty');
 
   // "Not loaded yet" and "genuinely empty" must not look the same — one of them
-  // tells the owner to go and create something.
+  // tells the owner to go and create something. The skeleton cards are now what
+  // says "not loaded yet", so there is nothing to add in words.
   if (!state.accountsLoaded) {
-    node.textContent = 'Loading…';
-    node.hidden = false;
+    node.hidden = true;
     return;
   }
 
@@ -693,20 +836,41 @@ function tick() {
     card.root.dataset.state = isOverdue(card.lock) ? 'overdue' : 'held';
     renderHeldMeta(card);
   }
+
+  // Going overdue moves a card from one column of the meter to another, and no
+  // snapshot arrives to say so — the clock is the only thing that changed.
+  renderSummary();
 }
 
 /* ---------------------------------------------------------------- startup */
 
 async function start() {
+  // First, and before any await: the theme is the one control that has to work
+  // on a page that failed to reach Firebase at all.
+  initTheme();
+
+  // Also before the awaits. The wait a reader actually sits through is the
+  // sign-in round trip, not the snapshot that follows it, so a board that only
+  // starts looking busy after sign-in has missed the part worth covering.
+  showSkeleton();
+
   // Started before sign-in so the two round trips overlap; awaited after, so a
   // sign-in failure still reports itself first.
   const identityPromise = loadIdentity();
 
   db = await connect();
-  if (!db) return; // boot.js has already said why on the page
+  if (!db) {
+    // boot.js has already said why on the page. Ghosts of a board that is not
+    // going to arrive would be promising a second thing that never happens.
+    clearSkeleton();
+    return;
+  }
 
   state.identity = await identityPromise;
   renderWho(state.identity);
+
+  // The activity page is the owner's, so its link is too.
+  el('nav').hidden = !state.identity.isAdmin;
 
   // Draw once before any snapshot arrives. Every other renderBoard() call is
   // driven by a listener, so without this the page stays blank until the first

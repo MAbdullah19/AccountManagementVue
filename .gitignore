@@ -16,12 +16,14 @@ desktop.ini
 *.png
 step3.md
 
-# Two exceptions. logo.png is the favicon and the wordmark, so the deployed
+# Three exceptions. logo.png is the favicon and the wordmark, so the deployed
 # site needs it: generated from "VuePulse Logo.png" (kept ignored, it is the
-# source art) cropped square to the mark and scaled to 256px. screenshot.png is
-# the README's, taken from preview.html so it contains only fixtures.
+# source art) cropped square to the mark and scaled to 256px. The two
+# screenshots are the README's, one per theme, both taken from preview.html so
+# they contain only fixtures.
 !logo.png
 !screenshot.png
+!screenshot-dark.png
 
 # firebase-config.js is deliberately NOT ignored. Cloudflare Pages serves this
 # repo as-is with no build step, so the file has to be committed or the deployed

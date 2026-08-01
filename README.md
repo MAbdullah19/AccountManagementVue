@@ -9,6 +9,13 @@ everyone, no logins to remember.
 
 ![The board: an available account, one in use, and one held past its estimate](screenshot.png)
 
+<details>
+<summary>The same board in the dark theme</summary>
+
+![The same board on the dark theme, where the mark's own black is the page](screenshot-dark.png)
+
+</details>
+
 ## The problem
 
 A team has a handful of logins only one person can use at a time — a billing
@@ -32,8 +39,12 @@ when, and when they expect to be done. That is the whole product.
   train people to click through them.
 - **A roster per account.** "Which login am I supposed to use?", answered for a
   new teammate.
+- **One line for the whole board.** `2 of 5 accounts free`, with a meter, above
+  the cards — the question people walk up with, answered before they read one.
 - **An append-only activity log**, on its own page.
 - **The tab title is the board** — `○ 3 of 5 free` — readable while pinned.
+- **Light and dark.** Follows the operating system by default; the toggle in the
+  corner overrides it and is remembered.
 
 ## What it deliberately does not do
 
@@ -101,6 +112,7 @@ lock.js             claim / release / force-release transactions
 accounts.js         account metadata and roster writes
 identity.js         Cloudflare Access identity + the owner check
 clock.js            server time offset and all time formatting
+theme.js            the light/dark toggle, shared by both pages
 functions/api/      one Pages Function, which answers "who is reading this?"
 database.rules.json the rules to paste into the Firebase console
 preview.html        every card state, rendered without Firebase
@@ -118,6 +130,12 @@ and there should not be one.
 
 Every colour in `styles.css` is sampled from `logo.png` rather than picked by
 eye: `#EC1C24` falling to `#B0121F` with a `#780000` shadow, on `#1A1A1A`.
+
+Those five hues are constants and belong to no theme. A theme may only change
+surfaces and inks, which is why adding one means filling in a second list of
+custom properties and touching nothing else. The red cards do not follow the
+theme at all — they are lit panels rather than page background, and they are the
+same colour under both.
 
 ## Data model
 

@@ -1,4 +1,4 @@
-/* Account Board — red / black / white.
+/* Account Board — red / black / white, in two themes.
 
    This reverses v1's "flat, no gradients, green = free" rule on purpose; the
    reasoning is in plan.md §2.1. Red is now both the brand accent and the
@@ -7,14 +7,51 @@
    The v1 rule that did not change: colour is never the only signal. Every
    state also says what it is in words, so the board survives grayscale and
    colourblindness. Gradients stay on surfaces — text always sits on flat
-   colour, never on a gradient mid-stop, so contrast stays checkable. */
+   colour, never on a gradient mid-stop, so contrast stays checkable.
 
-/* Every value below is sampled from logo.png rather than picked by eye: the
-   mark is #EC1C24 falling to #B0121F with a #780000 shadow, on a #1A1A1A
-   ground. The greys are neutral for the same reason — the old ones carried a
-   blue tint that read as off-brand next to the real black. */
+   Layout below is split in two on purpose. The hues sampled from the logo are
+   constants and never move; everything a theme is allowed to change is a
+   surface or an ink. Adding a third theme means filling in that second list
+   and nothing else. */
+
+/* ---------- the logo's own colours, sampled rather than picked ---------- */
+
+/* logo.png is #EC1C24 falling to #B0121F with a #780000 shadow, on a #1A1A1A
+   ground. These five values are the whole palette; the greys elsewhere are
+   neutral for the same reason — a blue tint reads as off-brand next to the
+   real black. */
 :root {
-  /* ink — the logo's black */
+  --red-500: #ec1c24;
+  --red-600: #e01b24;  /* white text on this is 4.8:1 */
+  --red-700: #c4141f;
+  --red-800: #b0121f;  /* white text on this is 7.1:1 */
+  --red-900: #8a0a13;
+  --red-950: #780000;  /* the darkest note in the mark */
+  --logo-black: #1a1a1a;
+
+  /* Held and overdue cards are the same red surface in both themes: they are
+     lit panels rather than page background, so they do not follow the theme. */
+  --grad-red:  linear-gradient(140deg, #ec1c24 0%, #c4141f 45%, #8a0a13 100%);
+  --grad-over: linear-gradient(140deg, #b0121f 0%, #780000 55%, #1a1a1a 100%);
+
+  --r-sm: 8px;
+  --r:    12px;
+  --r-lg: 18px;
+
+  --w: 1080px;
+
+  /* One easing for everything that moves, so the whole page decelerates the
+     same way. */
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+/* ---------- light ---------- */
+
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* ink — the logo's black, thinning out */
   --ink:        #1a1a1a;
   --ink-2:      #2e2e30;
   --ink-soft:   #606065;
@@ -27,35 +64,114 @@
   --line:       #e4e4e7;
   --line-2:     #d1d1d6;
 
-  /* red — the only hue in the palette */
-  --red:        #e01b24;  /* white text on this is 4.8:1 */
-  --red-deep:   #b0121f;  /* white text on this is 7.1:1 */
-  --red-ink:    #b0121f;  /* red text on white           */
+  /* the topbar's blur sits on this rather than on --paper, so what scrolls
+     under it stays faintly visible */
+  --paper-veil: rgba(255, 255, 255, 0.78);
+
+  --field:      #ffffff;
+  --red-ink:    #b0121f;  /* red text on paper */
   --red-wash:   #fdf2f3;
-  --red-shadow: #780000;  /* the darkest note in the mark */
+  --red-ring:   rgba(224, 27, 36, 0.18);
 
-  /* surfaces */
-  --grad-red:   linear-gradient(140deg, #ec1c24 0%, #c4141f 45%, #8a0a13 100%);
-  --grad-over:  linear-gradient(140deg, #b0121f 0%, #780000 55%, #1a1a1a 100%);
   --grad-free:  linear-gradient(160deg, #ffffff 0%, #f7f7f8 100%);
-  --grad-ink:   linear-gradient(140deg, #2e2e30 0%, #1a1a1a 100%);
-
   --shadow:     0 1px 2px rgba(26, 26, 26, 0.05), 0 8px 24px -12px rgba(26, 26, 26, 0.18);
+  --shadow-up:  0 2px 4px rgba(26, 26, 26, 0.06), 0 18px 38px -18px rgba(26, 26, 26, 0.30);
   --shadow-red: 0 1px 2px rgba(120, 0, 0, 0.20), 0 14px 30px -14px rgba(120, 0, 0, 0.55);
 
-  --r-sm: 8px;
-  --r:    12px;
-  --r-lg: 18px;
+  --skel:    #eeeef0;
+  --skel-hi: #f9f9fa;
 
-  --w: 1080px;
+  --card-red-edge: transparent;
+
+  /* how strongly the header's brand glow shows through */
+  --glow: 0.10;
+}
+
+/* ---------- dark ---------- */
+
+/* The mark already carries a #1a1a1a ground, so dark is the theme the logo was
+   drawn for — the tile stops being a light square on a dark bar and simply
+   becomes part of it. The page black is pushed a shade below the logo's so the
+   cards, which sit at the logo's black, read as raised off it. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --ink:        #f4f4f5;
+    --ink-2:      #dcdce0;
+    --ink-soft:   #a1a1aa;
+    --ink-faint:  #78787f;
+
+    --paper:      #0e0e0f;
+    --paper-2:    #17171a;
+    --paper-3:    #212126;
+    --line:       #2a2a2f;
+    --line-2:     #3c3c43;
+
+    --paper-veil: rgba(14, 14, 15, 0.72);
+
+    --field:      #09090a;
+    --red-ink:    #ff5f66;  /* #b0121f is unreadable here; this is 5.6:1 on --paper */
+    --red-wash:   #1e1113;
+    --red-ring:   rgba(236, 28, 36, 0.35);
+
+    --grad-free:  linear-gradient(160deg, #1c1c1f 0%, #141416 100%);
+    --shadow:     0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px -12px rgba(0, 0, 0, 0.8);
+    --shadow-up:  0 2px 6px rgba(0, 0, 0, 0.55), 0 20px 40px -18px rgba(0, 0, 0, 0.9);
+    --shadow-red: 0 1px 2px rgba(0, 0, 0, 0.45), 0 16px 34px -14px rgba(180, 10, 25, 0.55);
+
+    --skel:    #1d1d21;
+    --skel-hi: #2a2a31;
+
+    --card-red-edge: rgba(255, 255, 255, 0.09);
+
+    --glow: 0.22;
+  }
+}
+
+/* The explicit choice, which has to beat the media query above. Duplicated
+   rather than shared because a media query cannot be `or`-ed with an attribute
+   selector in plain CSS, and a preprocessor is not worth adding for one block. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ink:        #f4f4f5;
+  --ink-2:      #dcdce0;
+  --ink-soft:   #a1a1aa;
+  --ink-faint:  #78787f;
+
+  --paper:      #0e0e0f;
+  --paper-2:    #17171a;
+  --paper-3:    #212126;
+  --line:       #2a2a2f;
+  --line-2:     #3c3c43;
+
+  --paper-veil: rgba(14, 14, 15, 0.72);
+
+  --field:      #09090a;
+  --red-ink:    #ff5f66;
+  --red-wash:   #1e1113;
+  --red-ring:   rgba(236, 28, 36, 0.35);
+
+  --grad-free:  linear-gradient(160deg, #1c1c1f 0%, #141416 100%);
+  --shadow:     0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px -12px rgba(0, 0, 0, 0.8);
+  --shadow-up:  0 2px 6px rgba(0, 0, 0, 0.55), 0 20px 40px -18px rgba(0, 0, 0, 0.9);
+  --shadow-red: 0 1px 2px rgba(0, 0, 0, 0.45), 0 16px 34px -14px rgba(180, 10, 25, 0.55);
+
+  --skel:    #1d1d21;
+  --skel-hi: #2a2a31;
+
+  --card-red-edge: rgba(255, 255, 255, 0.09);
+
+  --glow: 0.22;
 }
 
 * { box-sizing: border-box; }
 
 /* Several things below set `display`, which beats the browser's default
-   `[hidden] { display: none }`. index.html's inline block says this too, but a
-   stylesheet that only works next to that block is a trap for whoever edits it
-   next — so it is stated here as well. */
+   `[hidden] { display: none }`. The pages' inline blocks say this too, but a
+   stylesheet that only works next to those blocks is a trap for whoever edits
+   it next — so it is stated here as well. */
 [hidden] { display: none !important; }
 
 body {
@@ -76,7 +192,23 @@ body::before {
   inset: 0 0 auto;
   height: 3px;
   background: var(--grad-red);
-  z-index: 10;
+  z-index: 20;
+}
+
+/* One wash of brand behind the masthead. It is the only decoration on the
+   page, it is behind everything, and in light mode it is barely there — its
+   whole job is to stop the top of the page reading as an empty white sheet.
+   Fixed rather than absolute so it does not lengthen the document. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  height: 420px;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    radial-gradient(60% 100% at 12% -10%, rgba(236, 28, 36, var(--glow)) 0%, transparent 70%),
+    radial-gradient(40% 90% at 88% -20%, rgba(120, 0, 0, var(--glow)) 0%, transparent 70%);
 }
 
 .shell {
@@ -87,17 +219,58 @@ body::before {
 
 /* ---------- top bar ---------- */
 
-/* Wraps rather than overflows: the wordmark, a nav link, an email and the
-   connection pill are more than a narrow screen can hold on one row. */
+/* Sticky, because the connection pill is the one thing on this page that is
+   worth knowing at any scroll position — a stale board that looks live is the
+   failure this whole indicator exists to prevent.
+
+   The negative margins pull it out to the shell's padding edges; the veil
+   behind it goes further still, out past the viewport, because a blurred band
+   that stops at the 1080px column reads as a floating rectangle rather than as
+   the top of the page. */
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 8;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding-bottom: 18px;
-  margin-bottom: 22px;
+  margin: -28px -20px 24px;
+  padding: 18px 20px 15px;
+}
+
+.topbar::before {
+  content: "";
+  position: absolute;
+  inset: 0 -50vw;  /* wider than any viewport; the clip below eats the overflow */
+  z-index: -1;
+  background: var(--paper-veil);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
   border-bottom: 1px solid var(--line);
+}
+
+/* The veil above deliberately overhangs the viewport, so something has to eat
+   the overhang or the page gains a sideways scroll.
+
+   `clip` rather than `hidden`: `hidden` would turn these into scroll
+   containers, and the bar above would stop sticking. Both elements are needed
+   — <html> stops its own overflow from propagating to the viewport, and it is
+   <body>'s box, exactly one viewport wide, that does the actual clipping. */
+html, body { overflow-x: clip; }
+
+/* Safari only learned `overflow: clip` in 16. Without it the overhang above is
+   a real sideways scroll, so on anything older the veil goes back to the width
+   of the column — narrower than intended, but nothing is broken. */
+@supports not (overflow: clip) {
+  .topbar::before { inset: 0; }
+}
+
+/* Without a blur to hide behind, a translucent bar just makes the text under
+   it unreadable. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .topbar::before { background: var(--paper); }
 }
 
 .topbar-left {
@@ -127,11 +300,12 @@ body::before {
   white-space: nowrap;
   padding: 4px 0;
   border-bottom: 1px solid transparent;
+  transition: color 140ms var(--ease), border-color 140ms var(--ease);
 }
 
 .nav a:hover {
   color: var(--red-ink);
-  border-bottom-color: var(--red);
+  border-bottom-color: var(--red-600);
 }
 
 .nav a:focus-visible {
@@ -148,7 +322,14 @@ body::before {
   height: 28px;
   flex: none;
   border-radius: 7px;
-  background: #1a1a1a url("logo.png") center / cover no-repeat;
+  background: var(--logo-black) url("logo.png") center / cover no-repeat;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 6px 16px -10px rgba(224, 27, 36, 0.9);
+  transition: transform 220ms var(--ease), box-shadow 220ms var(--ease);
+}
+
+.brand:hover .brand-mark {
+  transform: translateY(-1px) scale(1.04);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 10px 22px -10px rgba(224, 27, 36, 1);
 }
 
 .topbar-right {
@@ -173,6 +354,70 @@ body::before {
 
 .who[data-admin="true"] { color: var(--red-ink); }
 
+/* ---------- theme toggle ---------- */
+
+/* Two icons stacked in one button, swapped by the theme rather than by a
+   click handler — so the button is right even when the theme came from the
+   operating system and nobody has clicked anything. */
+.icon-btn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--paper-2);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color 140ms var(--ease), border-color 140ms var(--ease),
+              background 140ms var(--ease), transform 140ms var(--ease);
+}
+
+.icon-btn:hover {
+  color: var(--red-ink);
+  border-color: var(--line-2);
+  transform: translateY(-1px);
+}
+
+.icon-btn:active { transform: translateY(0); }
+
+.icon-btn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.icon-btn svg {
+  width: 16px;
+  height: 16px;
+  grid-area: 1 / 1;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: opacity 200ms var(--ease), transform 300ms var(--ease);
+}
+
+/* The icon names the theme you would get by pressing it, not the one you are
+   in — a moon on a dark page reads as "you are in the dark theme" to about
+   half of people and as "press for dark" to the other half, and only one of
+   those is actionable. */
+.icon-moon { opacity: 1;  transform: rotate(0); }
+.icon-sun  { opacity: 0;  transform: rotate(-90deg); }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .icon-moon { opacity: 0; transform: rotate(90deg); }
+  :root:not([data-theme="light"]) .icon-sun  { opacity: 1; transform: rotate(0); }
+}
+
+:root[data-theme="dark"] .icon-moon { opacity: 0; transform: rotate(90deg); }
+:root[data-theme="dark"] .icon-sun  { opacity: 1; transform: rotate(0); }
+
+:root[data-theme="light"] .icon-moon { opacity: 1; transform: rotate(0); }
+:root[data-theme="light"] .icon-sun  { opacity: 0; transform: rotate(-90deg); }
+
 /* ---------- connection indicator ---------- */
 
 .conn {
@@ -188,19 +433,47 @@ body::before {
   font-weight: 600;
   color: var(--ink-soft);
   white-space: nowrap;
+  transition: color 200ms var(--ease), border-color 200ms var(--ease);
 }
 
 .conn .dot {
+  position: relative;
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: var(--ink-faint);
+  transition: background 200ms var(--ease);
 }
 
-.conn[data-state="live"] .dot     { background: var(--red); }
+.conn[data-state="live"] .dot     { background: var(--red-600); }
 .conn[data-state="live"]          { color: var(--ink-2); border-color: var(--line-2); }
 .conn[data-state="offline"] .dot  { background: var(--ink); }
 .conn[data-state="offline"]       { color: var(--ink); border-color: var(--ink-2); }
+
+/* A heartbeat, so "live" is something the page keeps proving rather than
+   something it claimed once on load. Only on the live state — a pulsing dot
+   next to "reconnecting…" would be a lie told twice. */
+.conn[data-state="live"] .dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--red-600);
+  animation: ping 2.4s var(--ease) infinite;
+}
+
+@keyframes ping {
+  0%        { transform: scale(1);   opacity: 0.55; }
+  70%, 100% { transform: scale(3.2); opacity: 0; }
+}
+
+/* Connecting is genuinely in progress, so it gets the other kind of motion. */
+.conn[data-state="connecting"] .dot { animation: breathe 1.6s ease-in-out infinite; }
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 1; }
+}
 
 /* ---------- page header ---------- */
 
@@ -208,25 +481,124 @@ body::before {
 
 h1 {
   margin: 0;
-  font-size: 30px;
-  line-height: 1.15;
+  font-size: 32px;
+  line-height: 1.12;
   font-weight: 750;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.03em;
   overflow-wrap: anywhere;
 }
 
 .sub {
-  margin: 7px 0 0;
+  margin: 8px 0 0;
   font-size: 14px;
   color: var(--ink-soft);
   max-width: 46ch;
+}
+
+/* ---------- summary strip ---------- */
+
+/* The board answers "is this one free?" a card at a time. This answers "is
+   anything free?" before you have read a single card, which is the question
+   people actually walk up to it with. Hidden entirely below two accounts,
+   where the cards already are the summary. */
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 22px;
+  margin-bottom: 22px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--paper-2);
+}
+
+.summary-figure {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: none;
+}
+
+.summary-count {
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Nothing free is the one state worth colouring, and it is the same red that
+   means "in use" everywhere else on the page. */
+.summary[data-full="true"] .summary-count { color: var(--red-ink); }
+
+.summary-of {
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.meter {
+  display: flex;
+  flex: 1 1 220px;
+  min-width: 160px;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--paper-3);
+}
+
+/* Widths are set from app.js as percentages; the transition is what makes a
+   release read as movement instead of a redraw. */
+.meter-seg {
+  min-width: 0;
+  transition: width 480ms var(--ease);
+}
+
+.meter-seg[data-kind="free"]    { background: var(--line-2); }
+.meter-seg[data-kind="held"]    { background: var(--grad-red); }
+.meter-seg[data-kind="overdue"] { background: var(--grad-over); }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  flex: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.legend .swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.legend [data-kind="free"] .swatch    { background: var(--line-2); }
+.legend [data-kind="held"] .swatch    { background: var(--grad-red); }
+.legend [data-kind="overdue"] .swatch { background: var(--grad-over); }
+
+.legend b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- setup / error banner ---------- */
 
 .banner {
   border: 1px solid var(--line-2);
-  border-left: 4px solid var(--red);
+  border-left: 4px solid var(--red-600);
   background: var(--red-wash);
   color: var(--ink);
   border-radius: var(--r-sm);
@@ -270,7 +642,49 @@ h1 {
   padding: 22px;
   background: var(--grad-free);
   box-shadow: var(--shadow);
-  transition: opacity 140ms linear;
+  transition: opacity 140ms linear, transform 260ms var(--ease),
+              box-shadow 260ms var(--ease), border-color 260ms var(--ease);
+}
+
+/* Only where a pointer can actually hover: on a phone this rule would fire on
+   tap and leave the card stuck in its raised state. */
+@media (hover: hover) {
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-up);
+  }
+
+  .card[data-state="held"]:hover,
+  .card[data-state="overdue"]:hover { box-shadow: var(--shadow-red), var(--shadow-up); }
+}
+
+/* The card slides in once, when it is first appended. app.js staggers them by
+   setting --i, so a board of five arrives as a sequence rather than a jump. */
+.card-enter {
+  animation: cardIn 420ms var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* An account changing hands is the only event this page exists to report, and
+   it can happen while you are looking somewhere else on the board. The ring
+   catches the eye without moving anything. */
+.card-changed::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: changed 900ms var(--ease) both;
+}
+
+@keyframes changed {
+  from { box-shadow: inset 0 0 0 2px var(--red-600); opacity: 1; }
+  to   { box-shadow: inset 0 0 0 2px var(--red-600); opacity: 0; }
 }
 
 .card-head {
@@ -300,9 +714,13 @@ h1 {
 .card[data-state="held"] .card-desc,
 .card[data-state="overdue"] .card-desc { color: rgba(255, 255, 255, 0.75); }
 
+/* The edge is a theme's problem, not the card's. On paper a red card cuts its
+   own outline and a border would only muddy it; on the dark theme the overdue
+   gradient ends at the logo's black, which is a shade off the page's — so
+   without a hairline the bottom of that card simply stops existing. */
 .card[data-state="held"],
 .card[data-state="overdue"] {
-  border-color: transparent;
+  border-color: var(--card-red-edge);
   color: #fff;
   box-shadow: var(--shadow-red);
 }
@@ -365,6 +783,44 @@ h1 {
 
 .muted { color: var(--ink-faint); font-weight: 500; }
 
+/* ---------- time bar ---------- */
+
+/* The same numbers held-meta already spells out, as a shape. Nothing here is
+   information the sentence above it does not carry, which is why it is
+   aria-hidden: it is for the glance across the room, not the screen reader. */
+.timebar {
+  height: 4px;
+  margin-top: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.timebar-fill {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.9);
+  transition: width 700ms var(--ease);
+}
+
+/* Full, and visibly still running. The stripes are the only thing on the board
+   that moves on its own, which is the point — an overdue account should be
+   slightly annoying to look at. */
+.card[data-state="overdue"] .timebar-fill {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.95) 0 6px,
+    rgba(255, 255, 255, 0.55) 6px 12px
+  );
+  background-size: 17px 100%;
+  animation: stripes 900ms linear infinite;
+}
+
+@keyframes stripes {
+  to { background-position: 17px 0; }
+}
+
 /* ---------- forms ---------- */
 
 .claim-form, .force-form {
@@ -395,24 +851,39 @@ input {
   font: inherit;
   font-size: 16px; /* 16px stops iOS zooming on focus */
   color: var(--ink);
-  background: var(--paper);
+  background: var(--field);
   border: 1px solid var(--line-2);
   border-radius: var(--r-sm);
   padding: 10px 12px;
   min-height: 44px;
   width: 100%;
-  transition: border-color 120ms, box-shadow 120ms;
+  transition: border-color 140ms var(--ease), box-shadow 140ms var(--ease);
 }
 
 input::placeholder { color: var(--ink-faint); }
 
+input:hover { border-color: var(--ink-faint); }
+
 input:focus-visible {
   outline: none;
-  border-color: var(--red);
-  box-shadow: 0 0 0 3px rgba(224, 30, 55, 0.18);
+  border-color: var(--red-600);
+  box-shadow: 0 0 0 3px var(--red-ring);
 }
 
 /* On the red cards the input sits on colour, so it needs its own ring. */
+.card[data-state="held"] input,
+.card[data-state="overdue"] input {
+  background: rgba(0, 0, 0, 0.16);
+  border-color: rgba(255, 255, 255, 0.34);
+  color: #fff;
+}
+
+.card[data-state="held"] input::placeholder,
+.card[data-state="overdue"] input::placeholder { color: rgba(255, 255, 255, 0.55); }
+
+.card[data-state="held"] input:hover,
+.card[data-state="overdue"] input:hover { border-color: rgba(255, 255, 255, 0.6); }
+
 .card[data-state="held"] input:focus-visible,
 .card[data-state="overdue"] input:focus-visible {
   border-color: #fff;
@@ -420,6 +891,8 @@ input:focus-visible {
 }
 
 .btn {
+  position: relative;
+  overflow: hidden;
   font: inherit;
   font-size: 15px;
   font-weight: 650;
@@ -429,10 +902,31 @@ input:focus-visible {
   min-height: 44px;
   cursor: pointer;
   align-self: flex-start;
-  transition: transform 90ms ease, box-shadow 140ms, background 140ms;
+  transition: transform 120ms var(--ease), box-shadow 200ms var(--ease),
+              background 200ms var(--ease), border-color 200ms var(--ease),
+              filter 200ms var(--ease);
 }
 
+.btn:hover { transform: translateY(-1px); }
 .btn:active { transform: translateY(1px); }
+
+/* A sheen that crosses the button on hover. One line of decoration on the one
+   control that matters, and it costs nothing when nobody hovers it. */
+.btn-primary::after,
+.btn-danger::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.28) 50%, transparent 80%);
+}
+
+.btn-primary:hover::after,
+.btn-danger:hover::after { animation: sheen 700ms var(--ease); }
+
+@keyframes sheen {
+  to { transform: translateX(100%); }
+}
 
 .btn-primary {
   background: var(--grad-red);
@@ -440,25 +934,38 @@ input:focus-visible {
   box-shadow: var(--shadow-red);
 }
 
+.btn-primary:hover { filter: saturate(1.08) brightness(1.05); }
+
 .btn-quiet {
   background: var(--paper);
   color: var(--ink);
   border-color: var(--line-2);
 }
 
+.btn-quiet:hover { background: var(--paper-2); border-color: var(--ink-faint); }
+
 /* On a red card the primary action must not be red-on-red. */
 .card[data-state="held"] .btn-primary,
 .card[data-state="overdue"] .btn-primary {
   background: #fff;
-  color: var(--red-ink);
+  color: var(--red-800);
   box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.5);
 }
+
+.card[data-state="held"] .btn-primary::after,
+.card[data-state="overdue"] .btn-primary::after { display: none; }
 
 .card[data-state="held"] .btn-quiet,
 .card[data-state="overdue"] .btn-quiet {
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
   border-color: rgba(255, 255, 255, 0.38);
+}
+
+.card[data-state="held"] .btn-quiet:hover,
+.card[data-state="overdue"] .btn-quiet:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.6);
 }
 
 .btn:focus-visible {
@@ -475,7 +982,11 @@ input:focus-visible {
   cursor: not-allowed;
   opacity: 0.4;
   box-shadow: none;
+  transform: none;
+  filter: none;
 }
+
+.btn[disabled]::after { display: none; }
 
 .actions {
   display: flex;
@@ -519,6 +1030,7 @@ input:focus-visible {
   color: var(--ink-soft);
   padding: 4px 0;
   list-style-position: inside;
+  transition: color 140ms var(--ease);
 }
 
 .more > summary:hover { color: var(--red-ink); }
@@ -530,6 +1042,9 @@ input:focus-visible {
 }
 
 .more[open] > summary { margin-bottom: 10px; }
+
+.more[open] > form,
+.more[open] > .field { animation: cardIn 260ms var(--ease) both; }
 
 .more .field + .field { margin-top: 10px; }
 
@@ -578,13 +1093,19 @@ input:focus-visible {
   background: var(--paper);
   font-size: 13px;
   max-width: 100%;
+  transition: border-color 140ms var(--ease), background 140ms var(--ease);
 }
+
+.roster-list li:hover { border-color: var(--ink-faint); }
 
 .card[data-state="held"] .roster-list li,
 .card[data-state="overdue"] .roster-list li {
   background: rgba(255, 255, 255, 0.14);
   border-color: rgba(255, 255, 255, 0.3);
 }
+
+.card[data-state="held"] .roster-list li:hover,
+.card[data-state="overdue"] .roster-list li:hover { border-color: rgba(255, 255, 255, 0.55); }
 
 .roster-name { font-weight: 600; overflow-wrap: anywhere; }
 
@@ -617,9 +1138,10 @@ input:focus-visible {
   padding: 0 0 0 2px;
   cursor: pointer;
   color: var(--ink-faint);
+  transition: color 140ms var(--ease), transform 140ms var(--ease);
 }
 
-.roster-remove:hover { color: var(--red-ink); }
+.roster-remove:hover { color: var(--red-ink); transform: scale(1.2); }
 
 .roster-remove:focus-visible {
   outline: 2px solid var(--ink);
@@ -669,6 +1191,7 @@ input:focus-visible {
   color: var(--ink-soft);
   text-decoration: underline;
   text-underline-offset: 3px;
+  transition: color 140ms var(--ease);
 }
 
 .link-btn:hover { color: var(--ink); }
@@ -690,6 +1213,9 @@ input:focus-visible {
 .card[data-state="overdue"] .link-btn:focus-visible { outline-color: #fff; }
 
 .admin-form { display: flex; flex-direction: column; gap: 10px; }
+
+.admin-form:not([hidden]),
+.admin-confirm:not([hidden]) { animation: cardIn 260ms var(--ease) both; }
 
 .admin-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
 
@@ -718,18 +1244,30 @@ input:focus-visible {
 .card[data-state="held"] .btn-danger,
 .card[data-state="overdue"] .btn-danger {
   background: #fff;
-  color: var(--red-ink);
+  color: var(--red-800);
   box-shadow: none;
 }
+
+.card[data-state="held"] .btn-danger::after,
+.card[data-state="overdue"] .btn-danger::after { display: none; }
 
 /* ---------- add-account card ---------- */
 
 .card-add {
   gap: 12px;
-  background: var(--paper-2);
+  background: none;
   border-style: dashed;
   border-color: var(--line-2);
   box-shadow: none;
+}
+
+@media (hover: hover) {
+  .card-add:hover {
+    transform: none;
+    box-shadow: none;
+    border-color: var(--red-600);
+    background: var(--paper-2);
+  }
 }
 
 .card-add .card-label {
@@ -738,6 +1276,39 @@ input:focus-visible {
 }
 
 .card-add .btn-primary { align-self: stretch; }
+
+/* ---------- loading skeleton ---------- */
+
+/* "Not loaded yet" used to be a line of grey text where the board would be,
+   which reads as "there is nothing here" for the second or so it is up. Three
+   card-shaped ghosts say the opposite. */
+.skel {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 22px;
+  background: var(--grad-free);
+  box-shadow: var(--shadow);
+}
+
+.skel-line {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--skel) 25%, var(--skel-hi) 37%, var(--skel) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.5s ease infinite;
+}
+
+.skel-line + .skel-line { margin-top: 10px; }
+.skel-line.w-40 { width: 40%; }
+.skel-line.w-60 { width: 60%; }
+.skel-line.w-80 { width: 80%; }
+.skel-line.tall { height: 28px; margin-top: 22px; }
+.skel-line.block { height: 44px; margin-top: 18px; border-radius: var(--r-sm); }
+
+@keyframes shimmer {
+  from { background-position: 100% 0; }
+  to   { background-position: 0 0; }
+}
 
 /* ---------- inline messages ---------- */
 
@@ -748,6 +1319,7 @@ input:focus-visible {
   font-weight: 600;
 }
 
+.msg:not(:empty) { animation: cardIn 220ms var(--ease) both; }
 .msg:empty { margin-top: 0; min-height: 0; }
 .msg[data-tone="error"] { color: var(--red-ink); }
 .msg[data-tone="info"]  { color: var(--ink-soft); font-weight: 500; }
@@ -767,20 +1339,50 @@ input:focus-visible {
   border: 1px solid var(--line);
   border-radius: var(--r);
   overflow: hidden;
+  background: var(--paper);
 }
 
 .log li {
+  position: relative;
   display: flex;
   gap: 14px;
-  padding: 10px 14px;
+  padding: 11px 14px 11px 26px;
   border-bottom: 1px solid var(--line);
   overflow-wrap: anywhere;
-  background: var(--paper);
+  transition: background 140ms var(--ease);
 }
 
 .log li:nth-child(even) { background: var(--paper-2); }
 .log li:last-child { border-bottom: 0; }
-.log-empty { color: var(--ink-faint); }
+.log li:hover { background: var(--paper-3); }
+
+/* Which of the three things happened, before you have read the sentence. A
+   claim fills the dot, a release empties it, a force release is the deep red
+   the overdue cards use — the same vocabulary as the board. */
+.log li[data-action]::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 1.15em;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-2);
+  background: transparent;
+}
+
+.log li[data-action="claimed"]::before {
+  border-color: var(--red-600);
+  background: var(--red-600);
+}
+
+.log li[data-action="force-released"]::before {
+  border-color: var(--red-950);
+  background: var(--red-950);
+  box-shadow: 0 0 0 3px var(--red-wash);
+}
+
+.log-empty { color: var(--ink-faint); padding-left: 14px !important; }
 
 /* Wide enough for the longest form the column takes, "Jul 30, 1:06 PM", so
    today's time-only entries still line up with older dated ones. */
@@ -805,7 +1407,7 @@ input:focus-visible {
   margin: 0;
   padding: 18px 20px;
   border: 1px solid var(--line);
-  border-left: 4px solid var(--red);
+  border-left: 4px solid var(--red-600);
   border-radius: var(--r);
   background: var(--paper-2);
   font-size: 15px;
@@ -821,24 +1423,39 @@ input:focus-visible {
    well before the cards do. */
 @media (max-width: 560px) {
   .brand-text { display: none; }
+
+  /* Stacked, because the figure, the meter and three legend items will not sit
+     on one line at this width without shrinking all three past reading. */
+  .summary { gap: 12px; }
+  .meter { flex-basis: 100%; order: 3; }
+  .legend { flex: 1 1 auto; }
 }
 
 @media (max-width: 420px) {
   .shell { padding: 22px 16px 44px; }
+  .topbar { margin: -22px -16px 20px; padding: 15px 16px 13px; }
   .card { padding: 18px; }
-  h1 { font-size: 25px; }
+  h1 { font-size: 26px; }
   .holder { font-size: 23px; }
   .state-word.state-big { font-size: 23px; }
   .topbar-right { gap: 8px; }
   .topbar-left { gap: 12px; }
   .who { max-width: 20ch; }
+  .summary { padding: 14px; }
+  .summary-count { font-size: 26px; }
 
   /* Stacked, because 11ch of time column plus a log line does not fit. */
   .log li { flex-direction: column; gap: 2px; }
   .log-time { min-width: 0; font-size: 12px; }
 }
 
+/* Everything above is decoration on top of a page that already works without
+   it, so this can switch all of it off rather than picking replacements. */
 @media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; }
-  .btn:active { transform: none; }
+  *, *::before, *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .btn:hover, .btn:active, .card:hover, .icon-btn:hover { transform: none; }
 }

@@ -7,6 +7,7 @@ import { ref, onValue, get, query, limitToLast }
 import { initClock, formatLogTime } from './clock.js';
 import { loadIdentity } from './identity.js';
 import { connect, showBanner, watchConnection, renderWho } from './boot.js';
+import { initTheme } from './theme.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -51,6 +52,11 @@ function describe(entry) {
 
 function logLine(entry) {
   const li = document.createElement('li');
+
+  // Which of the three things happened, before the sentence has been read.
+  // Styling only — the line still says it in words, and an entry from a future
+  // version with an action nobody here has heard of just gets the empty dot.
+  if (typeof entry.action === 'string') li.dataset.action = entry.action;
 
   const time = document.createElement('span');
   time.className = 'log-time';
@@ -113,6 +119,10 @@ function showLocked() {
 }
 
 async function start() {
+  // Before any await: the theme has to work on the locked page too, which is
+  // the only thing most readers of this URL will ever see.
+  initTheme();
+
   // Asked first, and on its own: a non-owner never reaches Firebase at all, so
   // the log is not fetched into a page that is not going to show it.
   const identity = await loadIdentity();
