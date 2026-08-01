@@ -114,6 +114,7 @@ identity.js         Cloudflare Access identity + the owner check
 clock.js            server time offset and all time formatting
 theme.js            the light/dark toggle, shared by both pages
 grid.js             the lattice behind the page, on its own canvas
+cardfx.js           what a card does under a pointer: sheen, glare, edge glow
 functions/api/      one Pages Function, which answers "who is reading this?"
 database.rules.json the rules to paste into the Firebase console
 preview.html        every card state, rendered without Firebase
@@ -146,6 +147,25 @@ copy appears over anything clickable, and text fields keep an ordinary I-beam.
 Both are `cursor:` values in `styles.css` and no JavaScript is involved: a div
 chasing the mouse is always a frame behind, and hiding that would mean hiding
 the real pointer.
+
+The cards' sheen, glare and edge glow are ported from Aceternity's `glare-card`
+and `glowing-effect`, which are React with Tailwind and framer-motion. The
+behaviour crossed over; the code did not, and three things were changed rather
+than translated:
+
+- **No rainbow.** `glare-card`'s foil cycles six hues through three blend modes.
+  On a board with one hue that would be the loudest thing on the page. The foil
+  here is brushed steel and the logo's black — the same material as the pointer.
+- **The light goes under the text, not over it.** The original glazes the whole
+  card. A specular crossing a form label breaks the rule two paragraphs up, so
+  these layers light the surface and leave the type alone.
+- **The tilt is small, and it stops.** Ten degrees is right for a showcase card
+  sitting alone; on a card holding a form it moves the Claim button away from
+  the pointer reaching for it. Three degrees, and flat the moment focus lands
+  inside.
+
+`cardfx.js` writes to the hovered card and nothing else, so a board of twelve
+repaints one. Under `prefers-reduced-motion` it writes nothing at all.
 
 ## Data model
 

@@ -12,6 +12,7 @@ import { loadIdentity } from './identity.js';
 import { connect, showBanner, watchConnection, renderWho } from './boot.js';
 import { initTheme } from './theme.js';
 import { initKineticGrid } from './grid.js';
+import { initCardFx } from './cardfx.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -850,6 +851,10 @@ async function start() {
   // to work on a page that never reached it.
   initTheme();
   initKineticGrid();
+
+  // Delegated on the board, so it is wired once and covers every card this page
+  // will ever build — including the ones that do not exist yet.
+  initCardFx();
 
   // Also before the awaits. The wait a reader actually sits through is the
   // sign-in round trip, not the snapshot that follows it, so a board that only

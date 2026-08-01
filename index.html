@@ -123,6 +123,17 @@
 <template id="card-template">
   <article class="card" data-state="loading">
 
+    <!-- The three lit layers, ported from Aceternity's glare-card and
+         glowing-effect. Declared here rather than injected by cardfx.js so that
+         preview.html, which clones this template, gets them for free — and so
+         that a reader of the markup can see they exist. They sit *under* the
+         card's content on purpose; see styles.css. -->
+    <div class="card-fx" aria-hidden="true">
+      <span class="fx-sheen"></span>
+      <span class="fx-glare"></span>
+    </div>
+    <span class="fx-glow" aria-hidden="true"></span>
+
     <header class="card-head">
       <h2 class="card-label" data-el="label"></h2>
       <p class="card-desc" data-el="description" hidden></p>

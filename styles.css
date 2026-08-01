@@ -126,6 +126,18 @@
 
   --card-red-edge: transparent;
 
+  /* Paper cannot be lit any brighter, so it takes colour instead. */
+  --fx-glare: radial-gradient(farthest-corner circle at var(--fx-mx, 50%) var(--fx-my, 50%),
+    rgba(236, 28, 36, 0.55) 5%,
+    rgba(236, 28, 36, 0.20) 26%,
+    rgba(236, 28, 36, 0) 66%);
+  --fx-glare-blend: normal;
+  --fx-glare-max: 0.26;
+
+  /* soft-light darkens white, so the same sheen that reads as satin on a dark
+     card turns a white one grey. A seventh of it is all paper can take. */
+  --fx-sheen-max: 0.07;
+
   /* how strongly the header's brand glow shows through */
   --glow: 0.10;
 }
@@ -168,6 +180,15 @@
 
     --card-red-edge: rgba(255, 255, 255, 0.09);
 
+    /* A dark surface has headroom, so this is the original's white specular. */
+    --fx-glare: radial-gradient(farthest-corner circle at var(--fx-mx, 50%) var(--fx-my, 50%),
+      rgba(255, 255, 255, 0.8) 8%,
+      rgba(255, 255, 255, 0.55) 22%,
+      rgba(255, 255, 255, 0) 68%);
+    --fx-glare-blend: soft-light;
+    --fx-glare-max: 0.38;
+    --fx-sheen-max: 0.16;
+
     --glow: 0.22;
   }
 }
@@ -205,6 +226,15 @@
   --skel-hi: #2a2a31;
 
   --card-red-edge: rgba(255, 255, 255, 0.09);
+
+  /* A dark surface has headroom, so this is the original's white specular. */
+  --fx-glare: radial-gradient(farthest-corner circle at var(--fx-mx, 50%) var(--fx-my, 50%),
+    rgba(255, 255, 255, 0.8) 8%,
+    rgba(255, 255, 255, 0.55) 22%,
+    rgba(255, 255, 255, 0) 68%);
+  --fx-glare-blend: soft-light;
+  --fx-glare-max: 0.38;
+  --fx-sheen-max: 0.16;
 
   --glow: 0.22;
 }
@@ -717,15 +747,30 @@ h1 {
   padding: 22px;
   background: var(--grad-free);
   box-shadow: var(--shadow);
-  transition: opacity 140ms linear, transform 260ms var(--ease),
-              box-shadow 260ms var(--ease), border-color 260ms var(--ease);
+  transform: perspective(760px)
+             rotateX(var(--fx-rx, 0deg))
+             rotateY(var(--fx-ry, 0deg))
+             translateY(var(--fx-lift, 0px));
+  transition: opacity 140ms linear,
+              transform var(--fx-tilt-ms, 260ms) var(--ease),
+              box-shadow 260ms var(--ease),
+              border-color 260ms var(--ease),
+              --fx-start 900ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* A card full of form fields must not move while somebody is aiming at one of
+   them. The moment focus lands inside, the tilt goes flat and stays flat —
+   everything else about the effect keeps working. */
+.card:focus-within {
+  --fx-rx: 0deg;
+  --fx-ry: 0deg;
 }
 
 /* Only where a pointer can actually hover: on a phone this rule would fire on
    tap and leave the card stuck in its raised state. */
 @media (hover: hover) {
   .card:hover {
-    transform: translateY(-3px);
+    --fx-lift: -3px;
     box-shadow: var(--shadow-up);
   }
 
@@ -857,6 +902,156 @@ h1 {
 }
 
 .muted { color: var(--ink-faint); font-weight: 500; }
+
+/* ---------- card effects: sheen, glare, edge glow ---------- */
+
+/* Ported from Aceternity's glare-card and glowing-effect. Both are React plus
+   Tailwind plus framer-motion, so what crossed over is the behaviour and the
+   maths, not the code. Two things were changed rather than translated, and both
+   were deliberate:
+
+     * The holographic rainbow is gone. glare-card's foil cycles red, yellow,
+       green, cyan, blue and violet through three blend modes. On a board with
+       exactly one hue that would be the loudest thing on the page, and the
+       brief was to keep these in the palette. The foil here is brushed steel
+       with the logo's black — the same material the pointer is cut from.
+     * The lit layers sit *under* the card's content. The original glazes the
+       whole card, text included. The rule at the top of this file says text
+       always sits on flat colour so contrast stays checkable, and a specular
+       sweeping across a form label breaks it. Lighting the surface and leaving
+       the type alone keeps the effect and the rule.
+
+   Everything here is driven by custom properties that cardfx.js writes to the
+   hovered card, and only to the hovered card — so a board of twelve repaints
+   one, not twelve. */
+
+/* Registered so the glow's angle can be interpolated. Left unregistered, a
+   custom property is just a string: the arc would jump to each new pointer
+   position instead of swinging round to it, which is the whole effect. */
+@property --fx-start {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+.card-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* What the card actually says, lifted above the light. Positioned children
+   would otherwise paint under it — .card-fx is absolute and they are not. */
+.card > *:not(.card-fx):not(.fx-glow) {
+  position: relative;
+  z-index: 1;
+}
+
+.card-fx > span {
+  position: absolute;
+  inset: 0;
+  display: block;
+  opacity: 0;
+  transition: opacity 260ms var(--ease);
+}
+
+/* Only where a pointer can hover. On a phone these would light up on tap and
+   stay lit, which is worse than never lighting at all. */
+@media (hover: hover) {
+  .card:hover .fx-sheen { opacity: var(--fx-sheen-max); }
+  .card:hover .fx-glare { opacity: var(--fx-glare-max); }
+}
+
+/* glare-card's --diagonal, recoloured and considerably quieter. Three times the
+   card's size and offset by the pointer, so the bands travel across the surface
+   as you move rather than sitting still and merely brightening.
+
+   Two departures from the original, both found by looking at it: its bands
+   repeat every 12% of a 300% backdrop, which at card size is close ribbing —
+   handsome on a 320px showcase tile, corduroy on something you have to read
+   through. And `overlay` against a near-black card lifts it to mid grey, which
+   is not a sheen, it is a different card. Wider bands, and soft-light. */
+.fx-sheen {
+  background:
+    repeating-linear-gradient(128deg,
+      #1a1a1a 0%,
+      #8d949c 5.5%,
+      #d7dde3 7%,
+      #8d949c 8.5%,
+      #1a1a1a 16%,
+      #1a1a1a 20%)
+    var(--fx-bx, 50%) var(--fx-by, 50%) / 300% no-repeat;
+  mix-blend-mode: soft-light;
+}
+
+/* glare-card's specular: a radial that sits wherever the pointer is.
+   Unchanged in shape, but it had to become two different things.
+
+   The original is white on soft-light, which is right on a dark surface and
+   does precisely nothing on a white one — soft-light white over white paper is
+   a no-op, so the whole effect vanished in the light theme. There is no such
+   thing as a highlight on paper that is already at maximum; the only way a pale
+   card can answer a pointer is to take colour. So on paper the glare is a wash
+   of brand red instead, and the held cards — which are red in both themes and
+   have somewhere to go — keep the white. */
+.fx-glare {
+  background: var(--fx-glare);
+  mix-blend-mode: var(--fx-glare-blend);
+}
+
+.card[data-state="held"],
+.card[data-state="overdue"] {
+  --fx-glare: radial-gradient(farthest-corner circle at var(--fx-mx, 50%) var(--fx-my, 50%),
+    rgba(255, 255, 255, 0.8) 8%,
+    rgba(255, 255, 255, 0.55) 22%,
+    rgba(255, 255, 255, 0) 68%);
+  --fx-glare-blend: soft-light;
+  --fx-glare-max: 0.38;
+  --fx-sheen-max: 0.16;
+}
+
+/* glowing-effect, rebuilt rather than copied. The original paints a gradient
+   over the whole card and then masks it down to a border ring with a
+   three-layer mask-composite stack. Here the arc *is* the gradient, which
+   leaves only the ring to mask — and that is the classic content-box/border-box
+   exclude, a decade older and supported everywhere this runs. */
+.fx-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  padding: 1.4px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: var(--fx-active, 0);
+  transition: opacity 300ms var(--ease);
+  background: conic-gradient(
+    from calc((var(--fx-start) - var(--fx-spread, 26)) * 1deg),
+    transparent 0deg,
+    var(--red-800) calc(var(--fx-spread, 26) * 0.45deg),
+    #ff8a8f calc(var(--fx-spread, 26) * 1deg),
+    var(--red-500) calc(var(--fx-spread, 26) * 1.55deg),
+    transparent calc(var(--fx-spread, 26) * 2deg));
+  -webkit-mask: linear-gradient(#fff, #fff) content-box, linear-gradient(#fff, #fff);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff, #fff) content-box, linear-gradient(#fff, #fff);
+  mask-composite: exclude;
+}
+
+/* A red edge on a red card is not an edge. The same arc in white reads as the
+   light source travelling round it. */
+.card[data-state="held"] .fx-glow,
+.card[data-state="overdue"] .fx-glow {
+  background: conic-gradient(
+    from calc((var(--fx-start) - var(--fx-spread, 26)) * 1deg),
+    transparent 0deg,
+    rgba(255, 255, 255, 0.45) calc(var(--fx-spread, 26) * 0.45deg),
+    #ffffff calc(var(--fx-spread, 26) * 1deg),
+    rgba(255, 255, 255, 0.45) calc(var(--fx-spread, 26) * 1.55deg),
+    transparent calc(var(--fx-spread, 26) * 2deg));
+}
 
 /* ---------- time bar ---------- */
 
