@@ -163,7 +163,11 @@ explaining what to fix rather than failing silently.
 ## Deploying
 
 Live at **<https://accountmanagementvue.pages.dev>**, behind Cloudflare Access on
-the team domain `delicate-block-ebe5.cloudflareaccess.com`. Deployed 2026-08-01.
+the team domain `abdullahs-studio.cloudflareaccess.com`. Deployed 2026-08-01.
+
+The team domain is **account-wide, not per-application** — there is one Zero Trust
+organisation per Cloudflare account, and every Access app in it shares that login
+domain. That is why it is named after the account rather than after this board.
 
 All three steps below are done. They are written out because the Cloudflare UI
 was renamed mid-2026 and the old instructions no longer match anything on screen.
@@ -321,10 +325,17 @@ on `visibilitychange` covers a listener that died while the laptop was asleep.
   screen for this app offers only **Cloudflare** as a sign-in method, which
   authenticates against a *Cloudflare dashboard account* — so a teammate with a
   plain Gmail address and no Cloudflare account cannot get in, no matter that
-  their address is on the policy. Fix it under **Zero Trust → Settings →
-  Authentication → Login methods** by enabling **One-time PIN**, which emails a
-  six-digit code to any address. Test with a real teammate's address in a private
-  window before telling the team the board is ready.
+  their address is on the policy. Fix it under **Zero Trust → Integrations →
+  Identity providers → Add new identity provider → One-time PIN**, which emails a
+  six-digit code to any address. Cloudflare stopped adding OTP automatically —
+  new organisations get the Cloudflare provider instead — so this will catch
+  anyone following older instructions. Test with a real teammate's address in a
+  private window before telling the team the board is ready.
+
+  Related: if you rename the team, do it **before** adding a Google or Okta
+  identity provider. Those register a redirect URI containing the team domain,
+  so renaming afterwards means editing the OAuth config on the IdP's side too.
+  One-time PIN has no external callback and is unaffected.
 - **Spark tier allows 100 simultaneous connections.** Fine for a team; worth
   knowing before this gets shared more widely.
 - **A rule validation failure rejects the whole write** and surfaces as a
