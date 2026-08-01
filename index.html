@@ -9,19 +9,19 @@
      there is still no second file to deploy. Fully percent-encoded: an
      unencoded < or > makes the URL unparseable and Chrome silently falls back
      to requesting /favicon.ico. -->
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%3E%3Ccircle%20cx='8'%20cy='8'%20r='7'%20fill='%2316181d'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%3E%3Crect%20width='16'%20height='16'%20rx='5'%20fill='%23e01e37'/%3E%3C/svg%3E">
 <!-- Critical styles: layout skeleton only, so the card never flashes unstyled. -->
 <style>
-  :root { --w: 560px; }
+  :root { --w: 720px; }
   html { -webkit-text-size-adjust: 100%; }
   body {
     margin: 0;
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background: #fff;
-    color: #16181d;
+    color: #0d0e11;
   }
-  .shell { max-width: var(--w); margin: 0 auto; padding: 24px 16px 48px; }
-  .card { border: 2px solid #c8ccd4; border-radius: 10px; padding: 20px; }
+  .shell { max-width: var(--w); margin: 0 auto; padding: 28px 20px 56px; }
+  .card { border: 1px solid #e2e5ea; border-radius: 18px; padding: 26px; }
   [hidden] { display: none !important; }
 </style>
 <link rel="stylesheet" href="styles.css">
@@ -30,16 +30,21 @@
 
 <main class="shell">
 
-  <!-- EDIT ME: the account this board tracks, and one line about it. -->
-  <header class="head">
-    <div class="head-text">
-      <h1 id="account-id">users@vuepulse.com</h1>
-      <p class="sub">One shared login. One person at a time. Claim it before you use it.</p>
+  <div class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>ACCOUNT BOARD</span>
     </div>
     <div class="conn" id="conn" data-state="connecting" title="Connection to the board">
       <span class="dot" aria-hidden="true"></span>
       <span class="conn-label" id="conn-label">connecting…</span>
     </div>
+  </div>
+
+  <!-- EDIT ME: the account this board tracks, and one line about it. -->
+  <header class="head">
+    <h1 id="account-id">users@vuepulse.com</h1>
+    <p class="sub">One shared login. One person at a time. Claim it before you use it.</p>
   </header>
 
   <!-- Shown only when setup is incomplete or sign-in fails. -->

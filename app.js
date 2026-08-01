@@ -166,6 +166,10 @@ function renderHeldMeta() {
 
   const parts = [`Since ${formatTimeOfDay(lock.claimedAt)}`];
 
+  // Held and overdue are both red surfaces now, so the word has to carry the
+  // difference. In v1 red-vs-amber did that on its own.
+  el('held-word').textContent = isOverdue(lock) ? 'Overdue' : 'In use';
+
   if (isOverdue(lock)) {
     parts.push(`held ${formatDuration(serverNow() - lock.claimedAt)} — still in use?`);
   } else {

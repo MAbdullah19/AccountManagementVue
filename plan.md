@@ -147,18 +147,20 @@ Each phase ends with the app working and a commit. Do not start the next one
 until the current one is verified.
 
 ### Phase 1 — header and docs
-- [ ] `ops@company.com` → `users@vuepulse.com` in `index.html`
-- [ ] Write `plan.md` and `context.md`
-- [ ] Commit
+- [x] `ops@company.com` → `users@vuepulse.com` in `index.html`
+- [x] Write `plan.md` and `context.md`
+- [x] Commit
 
 ### Phase 2 — visual system
-- [ ] Design tokens: red/black/white ramp, gradients, radii, spacing, type scale
-- [ ] Restyle the existing board against the new tokens
-- [ ] Header, banner, card, forms, buttons, log, footer all rebuilt
-- [ ] Focus states survive — every control keeps a visible focus ring
-- [ ] Contrast checked on red-on-white and white-on-red
-- [ ] *Done when:* the single-account board looks new and behaves identically
-- [ ] Commit
+- [x] Design tokens: red/black/white ramp, gradients, radii, spacing, type scale
+- [x] Restyle the existing board against the new tokens
+- [x] Header, banner, card, forms, buttons, log, footer all rebuilt
+- [x] Focus states survive — every control keeps a visible focus ring
+- [x] Contrast checked on red-on-white and white-on-red
+- [x] Overdue now says "Overdue" — held and overdue are both red surfaces, so
+      the word carries a difference that red-vs-amber used to carry alone
+- [x] *Done when:* the single-account board looks new and behaves identically
+- [x] Commit
 
 ### Phase 3 — multiple accounts
 - [ ] `accounts.js` — read accounts, create, rename, delete

@@ -1,25 +1,48 @@
-/* Shared Account Status Board
-   Flat, high-contrast, no gradients, no shadows. Colour is always paired with
-   text so the board still reads in grayscale and for colourblind users. */
+/* Account Board — red / black / white.
+
+   This reverses v1's "flat, no gradients, green = free" rule on purpose; the
+   reasoning is in plan.md §2.1. Red is now both the brand accent and the
+   in-use colour, so available reads as the absence of red rather than green.
+
+   The v1 rule that did not change: colour is never the only signal. Every
+   state also says what it is in words, so the board survives grayscale and
+   colourblindness. Gradients stay on surfaces — text always sits on flat
+   colour, never on a gradient mid-stop, so contrast stays checkable. */
 
 :root {
-  --ink: #16181d;
-  --ink-soft: #5c626e;
-  --line: #c8ccd4;
-  --line-strong: #16181d;
-  --bg: #fff;
+  /* ink */
+  --ink:        #0d0e11;
+  --ink-2:      #24262d;
+  --ink-soft:   #5f6572;
+  --ink-faint:  #8d929d;
 
-  --free-bg: #ecfdf3;
-  --free-line: #12894b;
-  --free-ink: #0a6034;
+  /* paper */
+  --paper:      #ffffff;
+  --paper-2:    #f7f8fa;
+  --paper-3:    #eef0f4;
+  --line:       #e2e5ea;
+  --line-2:     #cfd3db;
 
-  --held-bg: #fdf0ef;
-  --held-line: #c5332e;
-  --held-ink: #8f2723;
+  /* red — the only hue in the palette */
+  --red:        #e01e37;  /* white text on this is 4.76:1 */
+  --red-deep:   #a3101f;  /* white text on this is 7.9:1  */
+  --red-ink:    #a3101f;  /* red text on white            */
+  --red-wash:   #fdf2f4;
 
-  --over-bg: #fff8e6;
-  --over-line: #b5760a;
-  --over-ink: #7d5205;
+  /* surfaces */
+  --grad-red:   linear-gradient(140deg, #e82740 0%, #cc1830 45%, #8f0e1b 100%);
+  --grad-over:  linear-gradient(140deg, #a3101f 0%, #5d0b13 55%, #15161a 100%);
+  --grad-free:  linear-gradient(160deg, #ffffff 0%, #f7f8fa 100%);
+  --grad-ink:   linear-gradient(140deg, #24262d 0%, #0d0e11 100%);
+
+  --shadow:     0 1px 2px rgba(13, 14, 17, 0.05), 0 8px 24px -12px rgba(13, 14, 17, 0.18);
+  --shadow-red: 0 1px 2px rgba(143, 14, 27, 0.20), 0 14px 30px -14px rgba(143, 14, 27, 0.55);
+
+  --r-sm: 8px;
+  --r:    12px;
+  --r-lg: 18px;
+
+  --w: 720px;
 }
 
 * { box-sizing: border-box; }
@@ -29,40 +52,56 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: 16px;
   line-height: 1.45;
-  background: var(--bg);
+  background: var(--paper);
   color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* A single hairline of brand across the very top. Cheap, and it makes the
+   page feel deliberate before anything has loaded. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--grad-red);
+  z-index: 10;
 }
 
 .shell {
-  max-width: 560px;
+  max-width: var(--w);
   margin: 0 auto;
-  padding: 24px 16px 48px;
+  padding: 28px 20px 56px;
 }
 
-/* ---------- header ---------- */
+/* ---------- top bar ---------- */
 
-.head {
+.topbar {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 20px;
+  padding-bottom: 18px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--line);
 }
 
-.head-text { min-width: 0; }
-
-h1 {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  overflow-wrap: anywhere;
-}
-
-.sub {
-  margin: 2px 0 0;
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
   font-size: 13px;
-  color: var(--ink-soft);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.brand-mark {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 6px;
+  background: var(--grad-red);
+  box-shadow: var(--shadow-red);
 }
 
 /* ---------- connection indicator ---------- */
@@ -70,195 +109,301 @@ h1 {
 .conn {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   flex: none;
-  padding-top: 3px;
+  padding: 5px 11px 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-2);
   font-size: 12px;
+  font-weight: 600;
   color: var(--ink-soft);
   white-space: nowrap;
 }
 
 .conn .dot {
-  width: 9px;
-  height: 9px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--ink-soft);
+  background: var(--ink-faint);
 }
 
-.conn[data-state="live"] .dot { background: var(--free-line); }
-.conn[data-state="live"] { color: var(--free-ink); }
-.conn[data-state="offline"] .dot { background: var(--over-line); }
-.conn[data-state="offline"] { color: var(--over-ink); }
+.conn[data-state="live"] .dot     { background: var(--red); }
+.conn[data-state="live"]          { color: var(--ink-2); border-color: var(--line-2); }
+.conn[data-state="offline"] .dot  { background: var(--ink); }
+.conn[data-state="offline"]       { color: var(--ink); border-color: var(--ink-2); }
+
+/* ---------- page header ---------- */
+
+.head { margin-bottom: 20px; }
+
+h1 {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+}
+
+.sub {
+  margin: 7px 0 0;
+  font-size: 14px;
+  color: var(--ink-soft);
+  max-width: 46ch;
+}
 
 /* ---------- setup / error banner ---------- */
 
 .banner {
-  border: 2px solid var(--over-line);
-  background: var(--over-bg);
-  color: var(--over-ink);
-  border-radius: 10px;
-  padding: 12px 14px;
-  margin-bottom: 16px;
+  border: 1px solid var(--line-2);
+  border-left: 4px solid var(--red);
+  background: var(--red-wash);
+  color: var(--ink);
+  border-radius: var(--r-sm);
+  padding: 13px 15px;
+  margin-bottom: 18px;
   font-size: 14px;
 }
 
-.banner strong { display: block; margin-bottom: 4px; }
+.banner strong { display: block; margin-bottom: 3px; color: var(--red-ink); }
 .banner p { margin: 0; overflow-wrap: anywhere; }
-.banner code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13px;
-}
 
 /* ---------- status card ---------- */
 
 .card {
-  border: 2px solid var(--line);
-  border-radius: 10px;
-  padding: 20px;
-  transition: opacity 120ms linear;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 26px;
+  background: var(--grad-free);
+  box-shadow: var(--shadow);
+  transition: opacity 140ms linear;
 }
 
-.card[data-state="free"]     { border-color: var(--free-line); background: var(--free-bg); }
-.card[data-state="held"]     { border-color: var(--held-line); background: var(--held-bg); }
-.card[data-state="overdue"]  { border-color: var(--over-line); background: var(--over-bg); }
+.card[data-state="held"],
+.card[data-state="overdue"] {
+  border-color: transparent;
+  color: #fff;
+  box-shadow: var(--shadow-red);
+}
+
+.card[data-state="held"]    { background: var(--grad-red); }
+.card[data-state="overdue"] { background: var(--grad-over); }
 
 /* A stale reading must look stale. */
-.card[data-stale="true"] { opacity: 0.45; }
+.card[data-stale="true"] { opacity: 0.4; }
 
 .state-word {
   margin: 0;
-  font-size: 30px;
-  line-height: 1.1;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--red-ink);
 }
 
-.card[data-state="free"]    .state-word { color: var(--free-ink); }
-.card[data-state="held"]    .state-word { color: var(--held-ink); }
-.card[data-state="overdue"] .state-word { color: var(--over-ink); }
+.card[data-state="held"] .state-word,
+.card[data-state="overdue"] .state-word { color: rgba(255, 255, 255, 0.82); }
 
-.state-word.muted { color: var(--ink-soft); font-size: 20px; font-weight: 600; }
+.state-word.muted { color: var(--ink-faint); }
 
 .holder {
-  margin: 6px 0 0;
-  font-size: 20px;
-  font-weight: 600;
+  margin: 8px 0 0;
+  font-size: 28px;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   overflow-wrap: anywhere;
 }
 
 .state-sub {
-  margin: 4px 0 0;
+  margin: 8px 0 0;
   font-size: 14px;
   color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
 }
 
-.card[data-state="overdue"] .state-sub { color: var(--over-ink); font-weight: 600; }
+.card[data-state="held"] .state-sub,
+.card[data-state="overdue"] .state-sub { color: rgba(255, 255, 255, 0.88); }
 
 .held-note {
-  margin: 10px 0 0;
-  padding: 8px 10px;
-  border-left: 3px solid var(--line);
-  background: rgba(255, 255, 255, 0.7);
+  margin: 14px 0 0;
+  padding: 10px 13px;
+  border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, 0.14);
   font-size: 14px;
   overflow-wrap: anywhere;
 }
 
-.muted { color: var(--ink-soft); font-weight: 400; }
+.muted { color: var(--ink-faint); font-weight: 500; }
+
+/* Free-state cards get the big word instead of a holder name. */
+#view-free .state-word {
+  font-size: 28px;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  color: var(--ink);
+}
 
 /* ---------- forms ---------- */
 
 .claim-form, .force-form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 16px;
+  gap: 12px;
+  margin-top: 20px;
 }
 
-.field { display: flex; flex-direction: column; gap: 4px; }
-.field-short { max-width: 170px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field-short { max-width: 180px; }
 
-.label { font-size: 13px; font-weight: 600; }
+.label {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.card[data-state="held"] .label,
+.card[data-state="overdue"] .label { color: rgba(255, 255, 255, 0.72); }
+
+.card[data-state="held"] .muted,
+.card[data-state="overdue"] .muted { color: rgba(255, 255, 255, 0.6); }
 
 input {
   font: inherit;
   font-size: 16px; /* 16px stops iOS zooming on focus */
   color: var(--ink);
-  background: #fff;
-  border: 2px solid var(--line);
-  border-radius: 6px;
-  padding: 9px 10px;
+  background: var(--paper);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
   min-height: 44px;
   width: 100%;
+  transition: border-color 120ms, box-shadow 120ms;
 }
+
+input::placeholder { color: var(--ink-faint); }
 
 input:focus-visible {
-  outline: 2px solid var(--line-strong);
-  outline-offset: 1px;
-  border-color: var(--line-strong);
+  outline: none;
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(224, 30, 55, 0.18);
 }
 
-input[aria-invalid="true"] { border-color: var(--held-line); }
+/* On the red cards the input sits on colour, so it needs its own ring. */
+.card[data-state="held"] input:focus-visible,
+.card[data-state="overdue"] input:focus-visible {
+  border-color: #fff;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.4);
+}
 
 .btn {
   font: inherit;
   font-size: 15px;
-  font-weight: 600;
-  border: 2px solid var(--line-strong);
-  border-radius: 6px;
-  padding: 11px 16px;
+  font-weight: 650;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  padding: 12px 20px;
   min-height: 44px;
   cursor: pointer;
   align-self: flex-start;
+  transition: transform 90ms ease, box-shadow 140ms, background 140ms;
 }
 
-.btn-primary { background: var(--line-strong); color: #fff; }
-.btn-quiet   { background: #fff; color: var(--ink); border-color: var(--line); }
+.btn:active { transform: translateY(1px); }
 
-.btn:focus-visible { outline: 2px solid var(--line-strong); outline-offset: 2px; }
+.btn-primary {
+  background: var(--grad-red);
+  color: #fff;
+  box-shadow: var(--shadow-red);
+}
+
+.btn-quiet {
+  background: var(--paper);
+  color: var(--ink);
+  border-color: var(--line-2);
+}
+
+/* On a red card the primary action must not be red-on-red. */
+.card[data-state="held"] .btn-primary,
+.card[data-state="overdue"] .btn-primary {
+  background: #fff;
+  color: var(--red-ink);
+  box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.5);
+}
+
+.card[data-state="held"] .btn-quiet,
+.card[data-state="overdue"] .btn-quiet {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.38);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.card[data-state="held"] .btn:focus-visible,
+.card[data-state="overdue"] .btn:focus-visible {
+  outline-color: #fff;
+}
 
 .btn[disabled] {
   cursor: not-allowed;
-  opacity: 0.45;
+  opacity: 0.4;
+  box-shadow: none;
 }
 
 .actions {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-top: 18px;
+  margin-top: 22px;
 }
 
-.actions .btn-primary { margin-bottom: 6px; }
+.actions .btn-primary { margin-bottom: 4px; }
 
 .force-form {
-  margin-top: 6px;
-  padding-top: 14px;
+  margin-top: 8px;
+  padding-top: 18px;
   border-top: 1px solid var(--line);
 }
+
+.card[data-state="held"] .force-form,
+.card[data-state="overdue"] .force-form { border-top-color: rgba(255, 255, 255, 0.22); }
 
 /* ---------- inline messages ---------- */
 
 .msg {
-  margin: 10px 0 0;
+  margin: 12px 0 0;
   font-size: 14px;
   min-height: 1.45em;
+  font-weight: 600;
 }
 
 .msg:empty { margin-top: 0; min-height: 0; }
-.msg[data-tone="error"] { color: var(--held-ink); font-weight: 600; }
-.msg[data-tone="info"]  { color: var(--ink-soft); }
+.msg[data-tone="error"] { color: var(--red-ink); }
+.msg[data-tone="info"]  { color: var(--ink-soft); font-weight: 500; }
+
+.card[data-state="held"] .msg[data-tone="error"],
+.card[data-state="overdue"] .msg[data-tone="error"] { color: #fff; }
 
 /* ---------- recent activity ---------- */
 
-.activity { margin-top: 28px; }
+.activity { margin-top: 34px; }
 
 .activity h2 {
-  margin: 0 0 8px;
-  font-size: 12px;
+  margin: 0 0 10px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--ink-soft);
+  color: var(--ink-faint);
 }
 
 .log {
@@ -266,32 +411,51 @@ input[aria-invalid="true"] { border-color: var(--held-line); }
   padding: 0;
   list-style: none;
   font-size: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
 }
 
 .log li {
-  padding: 6px 0;
-  border-bottom: 1px solid #eceef2;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
   overflow-wrap: anywhere;
+  background: var(--paper);
 }
 
+.log li:nth-child(even) { background: var(--paper-2); }
 .log li:last-child { border-bottom: 0; }
-.log-empty, .log-time { color: var(--ink-soft); }
-.log-time { font-variant-numeric: tabular-nums; }
+.log-empty { color: var(--ink-faint); }
+
+.log-time {
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
 
 /* ---------- footer ---------- */
 
 .foot {
-  margin-top: 28px;
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
   font-size: 12px;
-  color: var(--ink-soft);
+  color: var(--ink-faint);
 }
 
 .foot p { margin: 0; }
 
-/* Narrow phones: nothing structural to change, just keep the header from
-   crushing the account name against the indicator. */
-@media (max-width: 380px) {
-  .head { flex-direction: column; }
-  .conn { padding-top: 0; }
-  .state-word { font-size: 26px; }
+/* ---------- narrow phones ---------- */
+
+@media (max-width: 420px) {
+  .shell { padding: 22px 16px 44px; }
+  .card { padding: 20px; }
+  h1 { font-size: 25px; }
+  .holder { font-size: 24px; }
+  #view-free .state-word { font-size: 24px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+  .btn:active { transform: none; }
 }
