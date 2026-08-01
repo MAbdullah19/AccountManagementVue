@@ -140,13 +140,14 @@ body::before {
   border-radius: 3px;
 }
 
-/* The mark itself rather than a red square. cover, because logo.png is already
-   cropped square to the V with its own dark ground. */
+/* The mark itself rather than a red square. logo.png is square and carries its
+   own dark ground, so it fills the tile — big enough to read as a V next to
+   13px type, which 22px was not. */
 .brand-mark {
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   flex: none;
-  border-radius: 6px;
+  border-radius: 7px;
   background: #1a1a1a url("logo.png") center / cover no-repeat;
 }
 
