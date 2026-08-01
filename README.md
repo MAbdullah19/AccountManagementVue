@@ -172,6 +172,7 @@ one.
 /locks/{accountId}
   status           "free" | "held"
   holder           string, 1–40             (absent when free)
+  email            string, 1–120            (absent when free, and off the edge)
   note             string, 0–120            (optional — what they're doing)
   claimedAt        number, epoch ms         (absent when free)
   expectedMinutes  number, 1–480            (absent when free)
@@ -179,12 +180,28 @@ one.
 /log/{pushId}
   accountId      string    — which account this happened to
   accountLabel   string    — denormalised; see below
-  name           string    — who performed the action
+  name           string    — who performed the action, as displayed
+  email          string    — who performed it, as authenticated; see below
   action         "claimed" | "released" | "force-released"
   at             number, epoch ms
   reason         string    — required for force-released, absent otherwise
   heldBy         string    — force-released only: who was holding it
 ```
+
+**`holder` is typed and `email` is not.** The display name is whatever someone
+put in the box; the email is the one Cloudflare Access authenticated before the
+page loaded. Where they disagree, the email is the one to believe, and the log
+shows both — `Ayesha K. (ayesha@vuepulse.com) claimed …` — so a line says who
+really did something rather than only who said they did.
+
+Force-release entries are the exception: they carry the email as the `name` too,
+because that line records something done to somebody else and should not be
+signed with a name the actor chose for themselves.
+
+`email` is absent on `localhost`, where there is no Access edge to ask, and on
+anything written before this field existed. Every read of it tolerates that:
+`release` matches on the email only when both sides have one and falls back to
+comparing names, so old locks stay releasable.
 
 **Locks live outside `/accounts` on purpose.** Account metadata is owner-written
 and changes almost never; locks are written by everyone, constantly, through

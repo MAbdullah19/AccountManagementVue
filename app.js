@@ -212,7 +212,7 @@ function wireCard(card) {
 
     const account = card.account;
     const result = await whileBusy(els['claim-btn'], 'Claiming…', () =>
-      claim(db, account, { holder, note, expectedMinutes })
+      claim(db, account, { holder, email: state.identity.email, note, expectedMinutes })
     );
     syncClaimButton(card);
 
@@ -230,7 +230,7 @@ function wireCard(card) {
   els['release-btn'].addEventListener('click', async () => {
     setMsg(els['held-msg'], '');
     const result = await whileBusy(els['release-btn'], 'Releasing…', () =>
-      release(db, card.account, { holder: savedName() })
+      release(db, card.account, { holder: savedName(), email: state.identity.email })
     );
     if (!result.ok) setMsg(els['held-msg'], explain(result), 'error');
   });
@@ -246,17 +246,12 @@ function wireCard(card) {
 
     const reason = els['force-reason'].value.trim();
 
-    // Taking an account off someone is the one action where a self-typed name
-    // is not good enough, so it is attributed to the email Access authenticated
-    // rather than to whatever the person feels like typing.
-    //
-    // Everything else on the board still runs on display names. Claiming under
-    // a false name only inconveniences you; force-releasing under one lets you
-    // do it to someone else and pin it on a third party.
+    // lock.js prefers the email and falls back to the typed name, so the only
+    // thing to check here is that at least one of them exists.
     const typed = els['force-who'].value.trim();
-    const by = state.identity.email || savedName() || typed;
+    const by = savedName() || typed;
 
-    if (!by) {
+    if (!by && !state.identity.email) {
       // Only reachable with no Access identity — i.e. running locally.
       setMsg(els['held-msg'], 'Force release records who did it, so the board needs your name.', 'error');
       els['force-who'].focus();
@@ -266,7 +261,12 @@ function wireCard(card) {
     if (typed && !state.identity.email) saveName(typed);
 
     const result = await whileBusy(els['force-btn'], 'Releasing…', () =>
-      forceRelease(db, card.account, { by, reason, heldBy: card.lock?.holder })
+      forceRelease(db, card.account, {
+        by,
+        email: state.identity.email,
+        reason,
+        heldBy: card.lock?.holder,
+      })
     );
 
     if (result.ok) {
@@ -511,7 +511,12 @@ function renderHeld(card) {
   els['held-note'].hidden = !card.lock.note;
 
   // Release is for the person who holds it. Everyone else gets Force release.
-  els['release-btn'].hidden = !savedName() || card.lock.holder !== savedName();
+  // Matched on the email where both sides have one — same rule as lock.js, so
+  // the button appears exactly when the release would be accepted.
+  const mine = state.identity.email && card.lock.email
+    ? card.lock.email === state.identity.email
+    : Boolean(savedName()) && card.lock.holder === savedName();
+  els['release-btn'].hidden = !mine;
 
   // Access already knows who this is, so there is nothing to ask and nothing to
   // get wrong. The name is only asked of an unrecognised visitor — in practice
@@ -702,7 +707,15 @@ function renderIdentity() {
 // Names and reasons are free text typed by colleagues, so every line is built
 // with textContent. Nothing here touches innerHTML.
 function describe(entry) {
-  const name = entry.name || 'Someone';
+  // The name is typed and the email is not, so the email is shown alongside it
+  // — the line has to say who really did this, not only who said they did.
+  // Omitted when they are the same string, which is how force-release entries
+  // are written, and absent entirely from anything logged before this existed.
+  const shown = entry.name || 'Someone';
+  const name = entry.email && entry.email !== entry.name
+    ? `${shown} (${entry.email})`
+    : shown;
+
   // v1 entries predate multiple accounts and carry no label.
   const target = entry.accountLabel ? `${entry.accountLabel}` : 'the account';
 

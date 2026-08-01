@@ -16,6 +16,7 @@ import { serverNow } from './clock.js';
 // permission-denied error from a rejected write.
 const MAX_NAME = 40;
 const MAX_NOTE = 120;
+const MAX_EMAIL = 120;
 const MIN_MINUTES = 1;
 const MAX_MINUTES = 480;
 
@@ -31,6 +32,19 @@ export function isValidAccountId(id) {
 }
 
 const lockPath = (accountId) => `locks/${accountId}`;
+
+// The display name is typed and can be anything. The email comes from
+// Cloudflare Access, which authenticated it before the page loaded, so it is
+// the field to trust when the two disagree. Absent only on localhost, where
+// there is no Access edge to ask — hence every use of it tolerates ''.
+const cleanEmail = (email) => {
+  const value = trim(email).toLowerCase();
+  return value.length > 0 && value.length <= MAX_EMAIL ? value : '';
+};
+
+// Written into both the lock and the log rather than the log alone, so "may I
+// release this?" can be answered from the lock without a second lookup.
+const withEmail = (entry, email) => (email ? { ...entry, email } : entry);
 
 // Returns cleaned values, or null if the rules would reject them.
 function normalise({ holder, note, expectedMinutes }) {
@@ -63,23 +77,25 @@ async function logQuietly(db, account, entry) {
   }
 }
 
-export async function claim(db, account, { holder, note, expectedMinutes }) {
+export async function claim(db, account, { holder, email, note, expectedMinutes }) {
   if (!isValidAccountId(account?.id)) return { ok: false, reason: 'invalid' };
 
   const clean = normalise({ holder, note, expectedMinutes });
   if (!clean) return { ok: false, reason: 'invalid' };
 
+  const who = cleanEmail(email);
+
   let result;
   try {
     result = await runTransaction(ref(db, lockPath(account.id)), (current) => {
       if (current && current.status === 'held') return; // undefined aborts
-      return {
+      return withEmail({
         status: 'held',
         holder: clean.holder,
         note: clean.note,
         claimedAt: serverNow(),
         expectedMinutes: clean.expectedMinutes,
-      };
+      }, who);
     });
   } catch (err) {
     return { ok: false, reason: 'error', error: err };
@@ -87,21 +103,28 @@ export async function claim(db, account, { holder, note, expectedMinutes }) {
 
   if (!result.committed) return { ok: false, reason: 'taken' };
 
-  await logQuietly(db, account, { name: clean.holder, action: 'claimed' });
+  await logQuietly(db, account, withEmail({ name: clean.holder, action: 'claimed' }, who));
   return { ok: true, holder: clean.holder };
 }
 
-export async function release(db, account, { holder }) {
+export async function release(db, account, { holder, email }) {
   if (!isValidAccountId(account?.id)) return { ok: false, reason: 'invalid' };
 
   const name = trim(holder);
-  if (!name) return { ok: false, reason: 'invalid' };
+  const who = cleanEmail(email);
+  if (!name && !who) return { ok: false, reason: 'invalid' };
 
   let result;
   try {
     result = await runTransaction(ref(db, lockPath(account.id)), (current) => {
       if (!current || current.status !== 'held') return;
-      if (current.holder !== name) return;
+
+      // Prefer the email when both sides have one: it is exact, where the name
+      // is a string typed twice and easily typed differently the second time.
+      // Locks claimed before this field existed still fall back to the name.
+      const mine = who && current.email ? current.email === who : current.holder === name;
+      if (!mine) return;
+
       return { status: 'free' };
     });
   } catch (err) {
@@ -116,19 +139,29 @@ export async function release(db, account, { holder }) {
     return { ok: false, reason: 'not-holder' };
   }
 
-  await logQuietly(db, account, { name, action: 'released' });
+  // The snapshot is `{ status: 'free' }` by now, so the name has to come from
+  // the caller rather than from the lock we just cleared.
+  await logQuietly(db, account, withEmail({ name: name || who, action: 'released' }, who));
   return { ok: true };
 }
 
 // Always available to anyone. The friction is the required reason, and the
 // accountability is the log entry naming both people — not a confirm dialog.
-export async function forceRelease(db, account, { by, reason, heldBy }) {
+export async function forceRelease(db, account, { by, email, reason, heldBy }) {
   if (!isValidAccountId(account?.id)) return { ok: false, reason: 'invalid' };
 
-  const name = trim(by);
+  const who = cleanEmail(email);
+  const typed = trim(by);
   const why = trim(reason);
 
-  if (!name || name.length > MAX_NAME) return { ok: false, reason: 'invalid' };
+  if (typed.length > MAX_NAME) return { ok: false, reason: 'invalid' };
+
+  // The email leads here, unlike everywhere else on the board: this line is a
+  // record of something done to somebody else, so it names the account Access
+  // authenticated rather than a display name anyone can pick. The typed name is
+  // the fallback for local development, where there is no Access identity.
+  const name = who || typed;
+  if (!name) return { ok: false, reason: 'invalid' };
   if (!why) return { ok: false, reason: 'no-reason' };
   if (why.length > MAX_NOTE) return { ok: false, reason: 'invalid' };
 
@@ -144,7 +177,7 @@ export async function forceRelease(db, account, { by, reason, heldBy }) {
 
   if (!result.committed) return { ok: false, reason: 'already-free' };
 
-  const entry = { name, action: 'force-released', reason: why };
+  const entry = withEmail({ name, action: 'force-released', reason: why }, who);
   if (trim(heldBy)) entry.heldBy = trim(heldBy);
   await logQuietly(db, account, entry);
   return { ok: true };

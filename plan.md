@@ -84,6 +84,27 @@ A responsive grid of cards, each with its own state, timer and controls, so one
 glance answers *"is anything free"* for the whole team. Good to roughly a dozen
 accounts; past that this wants the list-and-detail layout instead.
 
+### 2.4 The display name is shown; the email is what is recorded
+
+Added 2026-08-02, after `/api/identity` made a verified email available to every
+reader rather than only to the owner.
+
+v1 had no identity at all, so a typed display name was the only thing available
+and the standing constraint says people type one. That premise is gone. The name
+is still what a card shows — cards read better with "Muhammad Abdullah" than with
+a second email stacked under the account's own address, and the roster lists
+people by name, so holders and rosters keep speaking the same language — but
+every claim, release and force release now also records the authenticated email.
+
+Force release goes further and *displays* the email, because that entry records
+an action taken against someone else and must not be signable with a name the
+actor picked.
+
+**This does not make the log tamper-proof.** Firebase auth here is anonymous, so
+the rules cannot check who wrote an entry; someone with devtools can still post
+a line under any name. It removes casual misattribution, not determined
+misattribution. Same trade as §2.2, and the same fix if it ever matters.
+
 ---
 
 ## 3. Data model
@@ -103,6 +124,7 @@ kept in its own subtree rather than nested under the account.
 /locks/{accountId}
   status           "free" | "held"
   holder           string, 1–40             (absent when free)
+  email            string, 1–120            (absent when free, and on localhost)
   note             string, 0–120            (absent when free)
   claimedAt        number, epoch ms         (absent when free)
   expectedMinutes  number, 1–480            (absent when free)
@@ -110,7 +132,8 @@ kept in its own subtree rather than nested under the account.
 /log/{pushId}
   accountId      string   — which account this happened to
   accountLabel   string   — denormalised, so the line still reads if the account is deleted
-  name           string
+  name           string   — as displayed
+  email          string   — as authenticated by Access; see §2.4
   action         "claimed" | "released" | "force-released"
   at             number, epoch ms
   reason         string   — force-released only

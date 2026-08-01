@@ -27,6 +27,7 @@
           ".validate": "newData.isString() && (newData.val() === 'free' || newData.val() === 'held')"
         },
         "holder": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 40" },
+        "email": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120" },
         "note": { ".validate": "newData.isString() && newData.val().length <= 120" },
         "claimedAt": { ".validate": "newData.isNumber()" },
         "expectedMinutes": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 480" },
@@ -39,7 +40,8 @@
         ".write": "auth != null && !data.exists()",
         ".validate": "newData.hasChildren(['name', 'action', 'at'])",
         "accountId": { ".validate": "newData.isString() && newData.val().length <= 200" },
-        "accountLabel": { ".validate": "newData.isString() && newData.val().length <= 60" }
+        "accountLabel": { ".validate": "newData.isString() && newData.val().length <= 60" },
+        "email": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120" }
       }
     }
   }
