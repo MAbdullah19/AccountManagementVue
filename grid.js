@@ -38,8 +38,8 @@ const WAVE_SPEED = 400;  // px per second
 const WAVE_FADE = 1.2;   // opacity lost per second
 const WAVE_PUSH = 18;    // how far the front shoves a node aside
 
-// The same ceiling cursor.js puts on its rings, for the same reason: rapid
-// clicking should not leave twenty overlapping waves to integrate per node.
+// Rapid clicking should not leave twenty overlapping fronts to integrate for
+// every node on every frame. The oldest goes; it is the faintest anyway.
 const MAX_WAVES = 5;
 
 // The pointer parked here influences nothing, which is the resting state — on
@@ -377,7 +377,7 @@ function onMove(event) {
   if (event.pointerType === 'touch') return;
 
   // Checked per event rather than at startup, so the setting can change
-  // mid-session and be obeyed without a reload — same as cursor.js.
+  // mid-session and be obeyed without a reload — same as theme.js.
   if (reducedMotion()) return;
 
   real.x = event.clientX;
@@ -415,9 +415,9 @@ function onDown(event) {
   if (event.button !== 0 || !event.isPrimary) return;
   if (reducedMotion()) return;
 
-  // Clicking into a field is aiming a caret. cursor.js declines to ring for it
-  // for the same reason, and a wave rolling out of the box you are about to
-  // type in is the louder half of that noise.
+  // Clicking into a field is aiming a caret, not pressing something. A wave
+  // rolling out of the box you are about to type in is noise at exactly the
+  // moment the page should be still.
   if (event.target instanceof Element && event.target.closest('input, textarea')) return;
 
   if (waves.length >= MAX_WAVES) waves.shift();

@@ -11,7 +11,6 @@ import { createAccount, renameAccount, deleteAccount, addUser, removeUser } from
 import { loadIdentity } from './identity.js';
 import { connect, showBanner, watchConnection, renderWho } from './boot.js';
 import { initTheme } from './theme.js';
-import { initRipples } from './cursor.js';
 import { initKineticGrid } from './grid.js';
 
 const el = (id) => document.getElementById(id);
@@ -847,10 +846,9 @@ function tick() {
 /* ---------------------------------------------------------------- startup */
 
 async function start() {
-  // First, and before any await: these are the two things that have to work on
-  // a page that never reached Firebase at all.
+  // First, and before any await: neither of these needs Firebase, and both have
+  // to work on a page that never reached it.
   initTheme();
-  initRipples();
   initKineticGrid();
 
   // Also before the awaits. The wait a reader actually sits through is the

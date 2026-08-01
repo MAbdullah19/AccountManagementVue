@@ -43,53 +43,6 @@
   /* One easing for everything that moves, so the whole page decelerates the
      same way. */
   --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
-
-  /* ---------- the pointer ---------- */
-
-  /* A real `cursor:` rather than a div chasing the mouse. A follower is one
-     frame behind the thing it is pretending to be, forever, and the only way to
-     hide that is `cursor: none` — which is a bad trade for a shine.
-
-     The metal is a gradient that changes direction twice: light, dark, light,
-     dark. That double turn is what the eye reads as a polished surface, and it
-     is why six stops are worth the bytes over two.
-
-     Every one of these carries the logo's black outline, for the same reason
-     the mark itself does — without it a red pointer vanishes the moment it
-     crosses a held card.
-
-     32px is a ceiling, not a choice: several browsers silently ignore a cursor
-     image larger than that and give you the system arrow instead. Each value
-     also ends in a keyword, so anything that cannot decode an SVG cursor still
-     gets a working pointer rather than none. */
-
-  --cursor-arrow:
-    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='.1' y1='0' x2='.85' y2='1'><stop offset='0' stop-color='%23ffc9cc'/><stop offset='.13' stop-color='%23ec1c24'/><stop offset='.37' stop-color='%238a0a13'/><stop offset='.55' stop-color='%23e01b24'/><stop offset='.75' stop-color='%23b0121f'/><stop offset='1' stop-color='%23780000'/></linearGradient></defs><path d='M3 2.6 3 24.4 8.3 19.6 11.9 27.7 16.3 25.7 12.7 17.8 19.8 17.2Z' fill='url(%23g)' stroke='%231a1a1a' stroke-width='1.8' stroke-linejoin='round'/><path d='M5 6.6 5 19.6' stroke='%23fff' stroke-opacity='.65' stroke-width='1.1' stroke-linecap='round'/></svg>") 3 3, auto;
-
-  /* Polished lighter. A pointer that does not change over a button has taken
-     the hand cursor away and given nothing back. */
-  --cursor-arrow-hot:
-    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='.1' y1='0' x2='.85' y2='1'><stop offset='0' stop-color='%23ffffff'/><stop offset='.12' stop-color='%23ff9ba0'/><stop offset='.34' stop-color='%23c4141f'/><stop offset='.5' stop-color='%23ff6b71'/><stop offset='.72' stop-color='%238a0a13'/><stop offset='1' stop-color='%23c4141f'/></linearGradient></defs><path d='M3 2.6 3 24.4 8.3 19.6 11.9 27.7 16.3 25.7 12.7 17.8 19.8 17.2Z' fill='url(%23g)' stroke='%231a1a1a' stroke-width='1.8' stroke-linejoin='round'/><path d='M5 6.6 5 19.6' stroke='%23fff' stroke-opacity='.9' stroke-width='1.2' stroke-linecap='round'/></svg>") 3 3, pointer;
-
-  /* The literal mark, for anyone who wants the likeness more than the
-     ergonomics. It is the better portrait and the worse cursor: a V has two top
-     corners and only one of them is the hotspot, which is a guess the arrow
-     never makes anybody do. Swap the two lines at the bottom of this block. */
-  --cursor-mark:
-    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='.1' y1='0' x2='.9' y2='1'><stop offset='0' stop-color='%23ffc9cc'/><stop offset='.15' stop-color='%23ec1c24'/><stop offset='.4' stop-color='%238a0a13'/><stop offset='.58' stop-color='%23e01b24'/><stop offset='.78' stop-color='%23b0121f'/><stop offset='1' stop-color='%23780000'/></linearGradient></defs><path d='M3 3 11 3 16 15.8 21 3 29 3 18.6 28.4 13.4 28.4Z' fill='url(%23g)' stroke='%231a1a1a' stroke-width='1.7' stroke-linejoin='round'/><path d='M4.4 4.6 10.4 4.6 15.2 16.6 13.5 20.9Z' fill='%23ff9aa0' fill-opacity='.45'/></svg>") 3 3, auto;
-
-  --cursor-mark-hot:
-    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='.1' y1='0' x2='.9' y2='1'><stop offset='0' stop-color='%23ffffff'/><stop offset='.14' stop-color='%23ff9ba0'/><stop offset='.36' stop-color='%23c4141f'/><stop offset='.52' stop-color='%23ff6b71'/><stop offset='.74' stop-color='%238a0a13'/><stop offset='1' stop-color='%23c4141f'/></linearGradient></defs><path d='M3 3 11 3 16 15.8 21 3 29 3 18.6 28.4 13.4 28.4Z' fill='url(%23g)' stroke='%231a1a1a' stroke-width='1.7' stroke-linejoin='round'/><path d='M4.4 4.6 10.4 4.6 15.2 16.6 13.5 20.9Z' fill='%23fff' fill-opacity='.55'/></svg>") 3 3, pointer;
-
-  /* The two lines that pick a pointer. Nothing else in the file names a cursor
-     image, so this is the whole switch. */
-  --cursor:     var(--cursor-arrow);
-  --cursor-hot: var(--cursor-arrow-hot);
-
-  /* How far a click carries. Deliberately about a thumb across — big enough to
-     register as an answer, small enough that it never reads as the page
-     loading something. */
-  --ripple-size: 108px;
 }
 
 /* ---------- light ---------- */
@@ -229,18 +182,7 @@ body {
   background: var(--paper);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
-  cursor: var(--cursor);
 }
-
-/* Anchors have no explicit cursor of their own anywhere in this file — they
-   take the hand from the browser, and the browser's hand is not this one. */
-a { cursor: var(--cursor-hot); }
-
-/* An I-beam is not decoration. It is the only thing on screen that says where
-   the caret will land, and a field you cannot aim at is worse than a field with
-   a boring pointer. Inherited from body without this, since the mark is set
-   there and nothing in the UA sheet outranks it. */
-input, textarea { cursor: text; }
 
 /* A single hairline of brand across the very top. Cheap, and it makes the
    page feel deliberate before anything has loaded. */
@@ -449,7 +391,7 @@ html, body { overflow-x: clip; }
   border-radius: 9px;
   background: var(--paper-2);
   color: var(--ink-soft);
-  cursor: var(--cursor-hot);
+  cursor: pointer;
   transition: color 140ms var(--ease), border-color 140ms var(--ease),
               background 140ms var(--ease), transform 140ms var(--ease);
 }
@@ -979,7 +921,7 @@ input:focus-visible {
   border-radius: var(--r-sm);
   padding: 12px 20px;
   min-height: 44px;
-  cursor: var(--cursor-hot);
+  cursor: pointer;
   align-self: flex-start;
   transition: transform 120ms var(--ease), box-shadow 200ms var(--ease),
               background 200ms var(--ease), border-color 200ms var(--ease),
@@ -1103,7 +1045,7 @@ input:focus-visible {
 
 /* Keeps the common path to name-then-Claim without hiding the options. */
 .more > summary {
-  cursor: var(--cursor-hot);
+  cursor: pointer;
   font-size: 13px;
   font-weight: 600;
   color: var(--ink-soft);
@@ -1215,7 +1157,7 @@ input:focus-visible {
   background: none;
   border: 0;
   padding: 0 0 0 2px;
-  cursor: var(--cursor-hot);
+  cursor: pointer;
   color: var(--ink-faint);
   transition: color 140ms var(--ease), transform 140ms var(--ease);
 }
@@ -1266,7 +1208,7 @@ input:focus-visible {
   background: none;
   border: 0;
   padding: 2px 0;
-  cursor: var(--cursor-hot);
+  cursor: pointer;
   color: var(--ink-soft);
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -1494,50 +1436,6 @@ input:focus-visible {
 }
 
 .locked a { color: var(--red-ink); text-underline-offset: 3px; }
-
-/* ---------- click ripple ---------- */
-
-/* Fixed rather than absolute, and placed from clientX/clientY: an absolutely
-   positioned ring near the bottom of the page would lengthen the document and
-   jog the scrollbar for as long as it lived. A fixed element cannot grow the
-   scroll area at all, and the ring is gone in a little over half a second —
-   well before anyone could scroll far enough to mind that it stayed put.
-
-   Silver first, then red. The silver band is what carries it across a held
-   card, the red band is what carries it across white paper, and between the two
-   there is no surface on this site it disappears into. */
-.ripple {
-  position: fixed;
-  z-index: 30;
-  width: var(--ripple-size);
-  height: var(--ripple-size);
-  border-radius: 50%;
-  pointer-events: none;
-  translate: -50% -50%;
-  background: radial-gradient(
-    closest-side,
-    transparent 44%,
-    rgba(255, 255, 255, 0.92) 57%,
-    rgba(255, 255, 255, 0.5) 66%,
-    rgba(236, 28, 36, 0.95) 75%,
-    rgba(120, 0, 0, 0.5) 87%,
-    transparent 95%
-  );
-  animation: ripple 620ms var(--ease) forwards;
-}
-
-/* `scale` rather than a `transform`, so it composes with the `translate` above
-   instead of replacing it. The ring has to stay centred on the click while it
-   grows, and one shorthand doing both would fight itself every frame.
-
-   Opacity holds through the first half and only then lets go. Fading from the
-   first frame sounds gentler and reads as a smudge: by the time the ring is
-   wide enough to notice, it has already spent most of what it had. */
-@keyframes ripple {
-  0%   { scale: 0.2; opacity: 1; }
-  55%  { opacity: 0.85; }
-  100% { scale: 1; opacity: 0; }
-}
 
 /* ---------- narrow phones ---------- */
 

@@ -175,12 +175,10 @@ for (const [time, action, text] of LOG) {
   document.getElementById('log-list').append(li);
 }
 
-// The toggle and the ripple are real here too, so the preview is the thing you
-// check the finished feel in rather than a light-only copy of the board.
+// The toggle is real here too, so the preview is the thing you check both
+// themes in rather than a light-only copy of the board.
 const { initTheme } = await import('./theme.js');
-const { initRipples } = await import('./cursor.js');
 initTheme();
-initRipples();
 </script>
 </body>
 </html>

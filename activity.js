@@ -8,7 +8,6 @@ import { initClock, formatLogTime } from './clock.js';
 import { loadIdentity } from './identity.js';
 import { connect, showBanner, watchConnection, renderWho } from './boot.js';
 import { initTheme } from './theme.js';
-import { initRipples } from './cursor.js';
 import { initKineticGrid } from './grid.js';
 
 const el = (id) => document.getElementById(id);
@@ -121,10 +120,9 @@ function showLocked() {
 }
 
 async function start() {
-  // Before any await: these have to work on the locked page too, which is the
-  // only thing most readers of this URL will ever see.
+  // Before any await: the theme has to work on the locked page too, which is
+  // the only thing most readers of this URL will ever see.
   initTheme();
-  initRipples();
   initKineticGrid();
 
   // Asked first, and on its own: a non-owner never reaches Firebase at all, so
