@@ -41,8 +41,13 @@ const IDENTITY_URLS = [
   `https://${TEAM_DOMAIN}/cdn-cgi/access/get-identity`,
 ];
 
-// The manual override. See `manualAdmin` below for why it is not loopback-only.
-const ADMIN_KEY = 'account-board:admin';
+// Development only. None of the endpoints above exist off the Access edge, so
+// there would otherwise be no way to see the owner UI while building.
+// Deliberately scoped to loopback so it cannot be reached on the deployed site.
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '']);
+const LOCAL_ADMIN_KEY = 'account-board:local-admin';
+
+const isLocal = () => LOCAL_HOSTS.has(location.hostname);
 
 const anonymous = () => ({ email: '', name: '', isAdmin: false, source: 'none' });
 
@@ -68,44 +73,32 @@ async function fromAccess() {
   return null;
 }
 
-// `?admin=1` turns the owner controls on and remembers it, `?admin=0` turns
-// them off again.
-//
-// This used to be scoped to localhost, on the reasoning that the deployed site
-// had Access to identify the owner properly. It does not — see IDENTITY_URLS —
-// so on the live site there was no way to reach the owner controls at all.
-//
-// The honest cost: the owner controls now go from "a teammate needs devtools to
-// reveal them" to "a teammate needs to know a URL". That is a smaller drop than
-// it sounds, because this gate never protected the data underneath it and the
-// docs have always said so. Everyone who can load this page is already inside
-// the Access policy. Delete this and rely on `fromAccess` alone if CORS is ever
-// enabled on the Access application.
-function manualAdmin() {
+// `?admin=1` turns the owner controls on for the session, `?admin=0` turns them
+// off. sessionStorage rather than localStorage, so it cannot outlive the tab.
+function localAdmin() {
   try {
     const flag = new URLSearchParams(location.search).get('admin');
-    if (flag === '1') localStorage.setItem(ADMIN_KEY, '1');
-    if (flag === '0') localStorage.removeItem(ADMIN_KEY);
-    return localStorage.getItem(ADMIN_KEY) === '1';
+    if (flag === '1') sessionStorage.setItem(LOCAL_ADMIN_KEY, '1');
+    if (flag === '0') sessionStorage.removeItem(LOCAL_ADMIN_KEY);
+    return sessionStorage.getItem(LOCAL_ADMIN_KEY) === '1';
   } catch {
-    return false; // localStorage throws in some privacy modes
+    return false; // sessionStorage throws in some privacy modes
   }
 }
 
 export async function loadIdentity() {
-  const override = manualAdmin();
   const access = await fromAccess();
 
   if (access) {
     return {
       ...access,
-      isAdmin: ADMIN_EMAILS.includes(access.email) || override,
+      isAdmin: ADMIN_EMAILS.includes(access.email),
       source: 'access',
     };
   }
 
-  if (override) {
-    return { email: 'owner mode', name: '', isAdmin: true, source: 'manual' };
+  if (isLocal() && localAdmin()) {
+    return { email: 'local development', name: '', isAdmin: true, source: 'local' };
   }
 
   return anonymous();

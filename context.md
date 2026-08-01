@@ -29,6 +29,7 @@ app.js              startup, wiring, board rendering
 lock.js             claim / release / force-release transactions
 accounts.js         account metadata and roster writes
 identity.js         Cloudflare Access identity + admin check
+functions/api/identity.js   Pages Function: reads the Access email at the edge
 clock.js            server time offset and all time formatting
 firebase-config.js  firebaseConfig (committed on purpose — see README)
 database.rules.json rules to paste into the Firebase console
@@ -48,6 +49,12 @@ the `hidden` attribute, which only worked because of the `!important` in
 
 Flat on purpose. No `src/`, no build step, no npm. The Firebase SDK is imported
 from the CDN at a **pinned** version (`12.16.0`).
+
+`functions/` is the one exception to flat, and it is Cloudflare's fixed
+convention rather than a choice: a file there becomes a route, so
+`functions/api/identity.js` serves `/api/identity`. It exists because the
+browser cannot read the Access identity on a `pages.dev` host — reasoning in
+README. Still no build step and no dependencies.
 
 Despite the repo name, there is **no Vue.js in this project** and none is
 wanted. "Vue" is the company the board is built for — the accounts it tracks are
@@ -82,14 +89,6 @@ These come from v1 and have not been revisited:
 
 ## Open items
 
-- [ ] **`get-identity` does not work on the app hostname.** Verified 2026-08-02:
-      unauthenticated it returns `{"err":"no app token set"}`; with a session it
-      serves the team domain's "Unable to find your Access organization" 404.
-      The Access config is fine — the site still 302s to
-      `abdullahs-studio.cloudflareaccess.com` and the policy includes the owner.
-      The documented endpoint is the team domain, which is cross-origin and
-      needs CORS enabling on the Access application. Until then the owner
-      controls come from the `?admin=1` toggle. See README.
 - [ ] **The v2 rules are not published yet, and nothing works until they are.**
       Firebase denies any path the rules do not name, so the board currently
       reports `permission_denied at /locks`. Paste `database.rules.json` into

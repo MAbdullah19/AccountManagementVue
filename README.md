@@ -218,25 +218,38 @@ authoritative, switch to Firebase Google sign-in for the owner so
 `auth.token.email` can be checked in the rules, and accept the second auth path
 through the app. This trade was made deliberately; see `plan.md` §2.2.
 
-**`get-identity` does not work on the app hostname here, so there is a manual
-toggle.** On this `*.pages.dev` deployment the same-origin path returns
-`{"err":"no app token set"}` without a cookie and the team domain's "Unable to
-find your Access organization" 404 page with one. The endpoint Cloudflare
-documents is the team domain, which does answer — but it is cross-origin from
-the board, so the browser blocks the read unless CORS is enabled on the Access
-application (Settings → CORS: allow the board's origin, allow credentials).
+### Why the email comes from `/api/identity` and not from Cloudflare directly
 
-`identity.js` therefore asks both endpoints and takes whichever answers, and
-falls back to a manual toggle: **`?admin=1` turns the owner controls on and
-remembers it in `localStorage`, `?admin=0` turns them off.** It works on the
-deployed site, not just on `localhost`.
+Cloudflare's own `get-identity` endpoint cannot be reached from the page on a
+`*.pages.dev` host. Both routes were tried and both fail:
 
-The cost, stated plainly: revealing the owner controls goes from needing
-devtools to needing a URL. That is a small drop precisely because this gate
-never protected the data underneath it — everyone who can load the page is
-already inside the Access policy, and any of them could always write to
-`/accounts` directly. If CORS is ever enabled on the Access application, delete
-the toggle and rely on the identity lookup alone.
+- **Same origin,** `/cdn-cgi/access/get-identity` — returns
+  `{"err":"no app token set"}` with no cookie, and serves the team domain's
+  "Unable to find your Access organization" 404 page once there *is* one.
+- **The team domain,** which is what Cloudflare documents — cross-origin from
+  the board, so the browser never sends the Access session cookie to it.
+  Enabling CORS on the application (Settings → CORS headers, with
+  `Access-Control-Allow-Credentials` and an explicit methods list, since
+  wildcards are illegal alongside credentials) was tried and did not help: those
+  settings govern the application's own responses, not the team domain's
+  `/cdn-cgi` paths.
+
+So `functions/api/identity.js`, a Pages Function, answers it from the edge
+instead. By the time it runs, Access has already authorised the request, and the
+request carries proof of who it authorised — either the header Access injects or
+the session cookie itself. Same origin, so nothing is left for CORS or
+third-party cookie rules to block.
+
+**This is why there is a `functions/` directory,** and why the deploy is no
+longer purely static. It still needs no build step and has no dependencies.
+
+`identity.js` tries `/api/identity` first and keeps both Cloudflare endpoints as
+fallbacks, because on a custom domain the same-origin one does work.
+
+On `localhost` none of the three exist, so there is a development fallback:
+`?admin=1` turns the owner controls on for the session and `?admin=0` turns them
+off. It is scoped to loopback hostnames and cannot be triggered on the deployed
+site.
 
 ## Running locally
 
