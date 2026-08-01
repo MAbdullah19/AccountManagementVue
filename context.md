@@ -82,6 +82,14 @@ These come from v1 and have not been revisited:
 
 ## Open items
 
+- [ ] **`get-identity` does not work on the app hostname.** Verified 2026-08-02:
+      unauthenticated it returns `{"err":"no app token set"}`; with a session it
+      serves the team domain's "Unable to find your Access organization" 404.
+      The Access config is fine — the site still 302s to
+      `abdullahs-studio.cloudflareaccess.com` and the policy includes the owner.
+      The documented endpoint is the team domain, which is cross-origin and
+      needs CORS enabling on the Access application. Until then the owner
+      controls come from the `?admin=1` toggle. See README.
 - [ ] **The v2 rules are not published yet, and nothing works until they are.**
       Firebase denies any path the rules do not name, so the board currently
       reports `permission_denied at /locks`. Paste `database.rules.json` into

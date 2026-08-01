@@ -218,10 +218,25 @@ authoritative, switch to Firebase Google sign-in for the owner so
 `auth.token.email` can be checked in the rules, and accept the second auth path
 through the app. This trade was made deliberately; see `plan.md` §2.2.
 
-`get-identity` does not exist off the Access edge, so on `localhost` there is a
-development fallback: `?admin=1` turns the owner controls on for the session and
-`?admin=0` turns them off. It is scoped to loopback hostnames and cannot be
-triggered on the deployed site.
+**`get-identity` does not work on the app hostname here, so there is a manual
+toggle.** On this `*.pages.dev` deployment the same-origin path returns
+`{"err":"no app token set"}` without a cookie and the team domain's "Unable to
+find your Access organization" 404 page with one. The endpoint Cloudflare
+documents is the team domain, which does answer — but it is cross-origin from
+the board, so the browser blocks the read unless CORS is enabled on the Access
+application (Settings → CORS: allow the board's origin, allow credentials).
+
+`identity.js` therefore asks both endpoints and takes whichever answers, and
+falls back to a manual toggle: **`?admin=1` turns the owner controls on and
+remembers it in `localStorage`, `?admin=0` turns them off.** It works on the
+deployed site, not just on `localhost`.
+
+The cost, stated plainly: revealing the owner controls goes from needing
+devtools to needing a URL. That is a small drop precisely because this gate
+never protected the data underneath it — everyone who can load the page is
+already inside the Access policy, and any of them could always write to
+`/accounts` directly. If CORS is ever enabled on the Access application, delete
+the toggle and rely on the identity lookup alone.
 
 ## Running locally
 
