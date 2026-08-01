@@ -245,12 +245,20 @@ function wireCard(card) {
     setMsg(els['held-msg'], '');
 
     const reason = els['force-reason'].value.trim();
-    const by = savedName();
+
+    // Whoever needs this least often is the likeliest to need it: someone who
+    // never claims anything, noticing an account stuck overnight. So the name
+    // is asked for here rather than demanded via a claim they do not want.
+    const typed = els['force-who'].value.trim();
+    const by = savedName() || typed;
 
     if (!by) {
-      setMsg(els['held-msg'], 'Force release records who did it — claim something once so the board knows your name.', 'error');
+      setMsg(els['held-msg'], 'Force release records who did it, so the board needs your name.', 'error');
+      els['force-who'].focus();
       return;
     }
+
+    if (typed) saveName(typed);
 
     const result = await whileBusy(els['force-btn'], 'Releasing…', () =>
       forceRelease(db, card.account, { by, reason, heldBy: card.lock?.holder })
@@ -258,6 +266,7 @@ function wireCard(card) {
 
     if (result.ok) {
       els['force-reason'].value = '';
+      els['force-who'].value = '';
       els['force-btn'].disabled = true;
       return;
     }
@@ -498,6 +507,9 @@ function renderHeld(card) {
 
   // Release is for the person who holds it. Everyone else gets Force release.
   els['release-btn'].hidden = !savedName() || card.lock.holder !== savedName();
+
+  // Only asked of someone the board has never seen claim anything.
+  els['force-who-field'].hidden = Boolean(savedName());
 
   renderHeldMeta(card);
 }
