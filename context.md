@@ -49,8 +49,10 @@ the `hidden` attribute, which only worked because of the `!important` in
 Flat on purpose. No `src/`, no build step, no npm. The Firebase SDK is imported
 from the CDN at a **pinned** version (`12.16.0`).
 
-Despite the repo name, there is **no Vue in this project** and none is wanted.
-The name is historical.
+Despite the repo name, there is **no Vue.js in this project** and none is
+wanted. "Vue" is the company the board is built for — the accounts it tracks are
+`@vuepulse.com`. Do not read it as a framework choice, and do not propose
+migrating to one.
 
 ## Standing constraints
 
