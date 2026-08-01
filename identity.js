@@ -22,18 +22,21 @@ const ADMIN_EMAILS = [
 // EDIT ME: the Zero Trust team domain, without the scheme.
 const TEAM_DOMAIN = 'abdullahs-studio.cloudflareaccess.com';
 
-// Two places to ask, because neither is reliable on its own.
+// Three places to ask, in descending order of how well they actually work.
 //
-// The same-origin path is the convenient one, but on a *.pages.dev host it
-// answers `{"err":"no app token set"}` without a cookie and serves the team
-// domain's "Unable to find your Access organization" 404 page with one. The
-// documented endpoint is the team domain, which works — but it is cross-origin
-// from the board, so the browser blocks the read unless CORS is enabled on the
-// Access application (Settings → CORS: allow this origin, allow credentials).
-//
-// Try both, take whichever answers. Verified 2026-08-02: the same-origin path
-// is the one that fails on this deployment.
+// 1. `/api/identity` — our own Pages Function, which reads the identity out of
+//    the request Access already authorised. Same origin, so no CORS and no
+//    third-party cookie to be blocked. This is the one that works.
+// 2. Cloudflare's own endpoint on this hostname. Verified 2026-08-02: on a
+//    *.pages.dev host it answers `{"err":"no app token set"}` without a cookie
+//    and serves the team domain's "Unable to find your Access organization"
+//    404 page with one. Kept for a future custom domain, where it does work.
+// 3. The team domain, which is what Cloudflare documents. Cross-origin, so the
+//    browser will not send the Access session cookie to it, and the
+//    application's CORS settings do not cover the team domain's /cdn-cgi paths.
+//    Enabling CORS on the application was tried and did not help.
 const IDENTITY_URLS = [
+  '/api/identity',
   '/cdn-cgi/access/get-identity',
   `https://${TEAM_DOMAIN}/cdn-cgi/access/get-identity`,
 ];
