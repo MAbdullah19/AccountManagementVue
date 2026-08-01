@@ -43,6 +43,49 @@
   /* One easing for everything that moves, so the whole page decelerates the
      same way. */
   --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+
+  /* ---------- the pointer ---------- */
+
+  /* A real `cursor:` rather than a div chasing the mouse. A follower is one
+     frame behind the thing it is pretending to be, forever, and the only way to
+     hide that is `cursor: none` — a bad trade for a shine.
+
+     This is the second attempt. The first was a red arrow with a fat black
+     outline and a white gloss down the middle, which is how a sticker is drawn,
+     not how metal looks. Three things were wrong with it and are fixed here:
+
+       * The body is not brand-coloured. Metal is grey; it borrows its colour
+         from what is around it. Red belongs on the object as a reflection, not
+         as the material.
+       * The banding is narrow and repeated — light, dark, light, dark, across a
+         range of about forty per cent luminance. Real brushed steel has many
+         small tonal turns. One broad white streak reads as plastic.
+       * The outline is thinner, and the specular is a hairline rather than a
+         highlight. Contrast that high at this size is a cartoon.
+
+     The brand is at the tip and nowhere else. A red line drawn down the body
+     reads as a decal — a stripe someone stuck on — and at 32px it is invisible
+     anyway. A glow bleeding out of the point reads as heat in the metal, and it
+     survives the size, because the tip is the part of a cursor anyone actually
+     looks at. The cool specular on the vertical face is what keeps it from
+     going flat: warm at the point, cool along the edge.
+
+     32px is a ceiling, not a choice: several browsers silently ignore a cursor
+     image larger than that and hand back the system arrow. Each value also ends
+     in a keyword, so anything that cannot decode an SVG cursor still gets a
+     working pointer rather than none. */
+
+  --cursor-arrow:
+    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><defs><linearGradient id='s' x1='.14' y1='0' x2='.82' y2='1'><stop offset='0' stop-color='%23585d65'/><stop offset='.16' stop-color='%232b2f35'/><stop offset='.34' stop-color='%23464b53'/><stop offset='.52' stop-color='%231f2227'/><stop offset='.73' stop-color='%233a3f46'/><stop offset='1' stop-color='%23131518'/></linearGradient><radialGradient id='h'><stop offset='0' stop-color='%23ff2b33' stop-opacity='.82'/><stop offset='.5' stop-color='%23e01b24' stop-opacity='.3'/><stop offset='1' stop-color='%23e01b24' stop-opacity='0'/></radialGradient><clipPath id='c'><path d='M3 2.6 3 24.4 8.3 19.6 11.9 27.7 16.3 25.7 12.7 17.8 19.8 17.2Z'/></clipPath></defs><path d='M3 2.6 3 24.4 8.3 19.6 11.9 27.7 16.3 25.7 12.7 17.8 19.8 17.2Z' fill='%23000' fill-opacity='.28' transform='translate(1 1.2)'/><path d='M3 2.6 3 24.4 8.3 19.6 11.9 27.7 16.3 25.7 12.7 17.8 19.8 17.2Z' fill='url(%23s)' stroke='%230b0c0e' stroke-width='1.3' stroke-linejoin='round'/><g clip-path='url(%23c)'><circle cx='4.8' cy='5.2' r='8.5' fill='url(%23h)'/></g><path d='M4.7 6.4 4.7 21.1' stroke='%23d4dae1' stroke-opacity='.6' stroke-width='.9' stroke-linecap='round'/></svg>") 3 3, auto;
+
+  /* The same metal under more light. A pointer that does not change over a
+     button has taken the hand cursor away and given nothing back — but the
+     change is a brighter reflection, not a different object. */
+  --cursor-arrow-hot:
+    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><defs><linearGradient id='s' x1='.14' y1='0' x2='.82' y2='1'><stop offset='0' stop-color='%237c838d'/><stop offset='.16' stop-color='%233b4048'/><stop offset='.34' stop-color='%23626a75'/><stop offset='.52' stop-color='%232c3037'/><stop offset='.73' stop-color='%234e555e'/><stop offset='1' stop-color='%231c1f23'/></linearGradient><radialGradient id='h'><stop offset='0' stop-color='%23ff4149' stop-opacity='.95'/><stop offset='.5' stop-color='%23ec1c24' stop-opacity='.45'/><stop offset='1' stop-color='%23ec1c24' stop-opacity='0'/></radialGradient><clipPath id='c'><path d='M3 2.6 3 24.4 8.3 19.6 11.9 27.7 16.3 25.7 12.7 17.8 19.8 17.2Z'/></clipPath></defs><path d='M3 2.6 3 24.4 8.3 19.6 11.9 27.7 16.3 25.7 12.7 17.8 19.8 17.2Z' fill='%23000' fill-opacity='.28' transform='translate(1 1.2)'/><path d='M3 2.6 3 24.4 8.3 19.6 11.9 27.7 16.3 25.7 12.7 17.8 19.8 17.2Z' fill='url(%23s)' stroke='%230b0c0e' stroke-width='1.3' stroke-linejoin='round'/><g clip-path='url(%23c)'><circle cx='5' cy='5.4' r='11' fill='url(%23h)'/></g><path d='M4.7 6.4 4.7 21.1' stroke='%23eef2f6' stroke-opacity='.82' stroke-width='.95' stroke-linecap='round'/></svg>") 3 3, pointer;
+
+  --cursor:     var(--cursor-arrow);
+  --cursor-hot: var(--cursor-arrow-hot);
 }
 
 /* ---------- light ---------- */
@@ -182,7 +225,18 @@ body {
   background: var(--paper);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
+  cursor: var(--cursor);
 }
+
+/* Anchors have no explicit cursor of their own anywhere in this file — they
+   take the hand from the browser, and the browser's hand is not this one. */
+a { cursor: var(--cursor-hot); }
+
+/* An I-beam is not decoration. It is the only thing on screen that says where
+   the caret will land, and a field you cannot aim at is worse than a field with
+   a boring pointer. Inherited from body without this, since the mark is set
+   there and nothing in the UA sheet outranks it. */
+input, textarea { cursor: text; }
 
 /* A single hairline of brand across the very top. Cheap, and it makes the
    page feel deliberate before anything has loaded. */
@@ -391,7 +445,7 @@ html, body { overflow-x: clip; }
   border-radius: 9px;
   background: var(--paper-2);
   color: var(--ink-soft);
-  cursor: pointer;
+  cursor: var(--cursor-hot);
   transition: color 140ms var(--ease), border-color 140ms var(--ease),
               background 140ms var(--ease), transform 140ms var(--ease);
 }
@@ -921,7 +975,7 @@ input:focus-visible {
   border-radius: var(--r-sm);
   padding: 12px 20px;
   min-height: 44px;
-  cursor: pointer;
+  cursor: var(--cursor-hot);
   align-self: flex-start;
   transition: transform 120ms var(--ease), box-shadow 200ms var(--ease),
               background 200ms var(--ease), border-color 200ms var(--ease),
@@ -1045,7 +1099,7 @@ input:focus-visible {
 
 /* Keeps the common path to name-then-Claim without hiding the options. */
 .more > summary {
-  cursor: pointer;
+  cursor: var(--cursor-hot);
   font-size: 13px;
   font-weight: 600;
   color: var(--ink-soft);
@@ -1157,7 +1211,7 @@ input:focus-visible {
   background: none;
   border: 0;
   padding: 0 0 0 2px;
-  cursor: pointer;
+  cursor: var(--cursor-hot);
   color: var(--ink-faint);
   transition: color 140ms var(--ease), transform 140ms var(--ease);
 }
@@ -1208,7 +1262,7 @@ input:focus-visible {
   background: none;
   border: 0;
   padding: 2px 0;
-  cursor: pointer;
+  cursor: var(--cursor-hot);
   color: var(--ink-soft);
   text-decoration: underline;
   text-underline-offset: 3px;

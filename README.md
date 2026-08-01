@@ -138,6 +138,15 @@ custom properties and touching nothing else. The red cards do not follow the
 theme at all — they are lit panels rather than page background, and they are the
 same colour under both.
 
+The pointer is the one place the palette is not the material. It is dark
+machined steel with the brand glowing out of the tip, because metal is grey and
+borrows its colour from what is near it — a red arrow with a white gloss down
+the middle is how a sticker is drawn, not how metal looks. A second, brighter
+copy appears over anything clickable, and text fields keep an ordinary I-beam.
+Both are `cursor:` values in `styles.css` and no JavaScript is involved: a div
+chasing the mouse is always a frame behind, and hiding that would mean hiding
+the real pointer.
+
 ## Data model
 
 ```
