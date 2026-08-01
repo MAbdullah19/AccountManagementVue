@@ -455,6 +455,17 @@ input:focus-visible {
 .card[data-state="held"] .force-form,
 .card[data-state="overdue"] .force-form { border-top-color: rgba(255, 255, 255, 0.22); }
 
+/* Says whose name goes in the log. Secondary, but it has to stay legible on
+   red — the generic .muted white is too faint to read at this size. */
+.force-as {
+  margin: 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.card[data-state="held"] .force-as,
+.card[data-state="overdue"] .force-as { color: rgba(255, 255, 255, 0.8); }
+
 /* In a card this narrow the primary action reads better full width. */
 .claim-form > .btn-primary { align-self: stretch; }
 

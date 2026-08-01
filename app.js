@@ -246,19 +246,24 @@ function wireCard(card) {
 
     const reason = els['force-reason'].value.trim();
 
-    // Whoever needs this least often is the likeliest to need it: someone who
-    // never claims anything, noticing an account stuck overnight. So the name
-    // is asked for here rather than demanded via a claim they do not want.
+    // Taking an account off someone is the one action where a self-typed name
+    // is not good enough, so it is attributed to the email Access authenticated
+    // rather than to whatever the person feels like typing.
+    //
+    // Everything else on the board still runs on display names. Claiming under
+    // a false name only inconveniences you; force-releasing under one lets you
+    // do it to someone else and pin it on a third party.
     const typed = els['force-who'].value.trim();
-    const by = savedName() || typed;
+    const by = state.identity.email || savedName() || typed;
 
     if (!by) {
+      // Only reachable with no Access identity — i.e. running locally.
       setMsg(els['held-msg'], 'Force release records who did it, so the board needs your name.', 'error');
       els['force-who'].focus();
       return;
     }
 
-    if (typed) saveName(typed);
+    if (typed && !state.identity.email) saveName(typed);
 
     const result = await whileBusy(els['force-btn'], 'Releasing…', () =>
       forceRelease(db, card.account, { by, reason, heldBy: card.lock?.holder })
@@ -508,8 +513,13 @@ function renderHeld(card) {
   // Release is for the person who holds it. Everyone else gets Force release.
   els['release-btn'].hidden = !savedName() || card.lock.holder !== savedName();
 
-  // Only asked of someone the board has never seen claim anything.
-  els['force-who-field'].hidden = Boolean(savedName());
+  // Access already knows who this is, so there is nothing to ask and nothing to
+  // get wrong. The name is only asked of an unrecognised visitor — in practice
+  // that means local development.
+  const verified = state.identity.email;
+  els['force-who-field'].hidden = Boolean(verified) || Boolean(savedName());
+  els['force-as'].textContent = verified ? `Recorded as ${verified}` : '';
+  els['force-as'].hidden = !verified;
 
   renderHeldMeta(card);
 }
