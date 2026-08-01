@@ -1,0 +1,31 @@
+# Files that must not become public URLs if this is ever deployed via Workers.
+# Same syntax as .gitignore. Wrangler skips anything matching these lines when
+# it uploads static assets.
+#
+# THIS FILE IS INERT TODAY. The board is deployed on Cloudflare Pages, which has
+# no equivalent ignore file — it uploads the whole output directory. Nothing here
+# is protecting anything right now.
+#
+# What actually gates these files is Cloudflare Access, which sits in front of
+# the entire hostname: every path, including the ones below, 302s to the Access
+# login unless you are on the policy. Verified 2026-08-01.
+#
+# This file and wrangler.jsonc are kept together so a future move to Workers
+# (Cloudflare's stated direction) does not have to rediscover the list.
+
+# Documentation and planning — not part of the app.
+README.md
+account-board-implementation-plan.md
+
+# The Firebase rules are pasted into the Firebase console by hand. Serving them
+# is not a credential leak (rules are not secret) but it hands a reader the
+# exact shape of the database for free.
+database.rules.json
+
+# Screenshots kept in the repo for reference.
+*.png
+
+# Deploy config and repo metadata.
+wrangler.jsonc
+.gitignore
+.assetsignore

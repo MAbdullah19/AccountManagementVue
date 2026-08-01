@@ -10,6 +10,12 @@ desktop.ini
 *~
 .env.local
 
+# Screenshots and scratch notes used while setting the deploy up. They are
+# working artifacts, not part of the app. Committing them would also publish
+# them, since Cloudflare Pages serves the whole repo verbatim.
+*.png
+step3.md
+
 # firebase-config.js is deliberately NOT ignored. Cloudflare Pages serves this
 # repo as-is with no build step, so the file has to be committed or the deployed
 # site cannot import it. The web API key in it is not a secret, and the repo is

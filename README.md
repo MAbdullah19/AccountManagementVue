@@ -162,6 +162,12 @@ explaining what to fix rather than failing silently.
 
 ## Deploying
 
+Live at **<https://accountmanagementvue.pages.dev>**, behind Cloudflare Access on
+the team domain `delicate-block-ebe5.cloudflareaccess.com`. Deployed 2026-08-01.
+
+All three steps below are done. They are written out because the Cloudflare UI
+was renamed mid-2026 and the old instructions no longer match anything on screen.
+
 1. Push to a **private** GitHub or GitLab repo.
 2. Cloudflare dashboard → **Workers & Pages → Create → Pages → Connect to Git**.
    Pick the repo. **Build command: none. Build output directory: `/`.** There is
@@ -172,25 +178,61 @@ explaining what to fix rather than failing silently.
    `localhost` by default and **silently fails in production** until you do this.
    The symptom is the "Could not sign in" banner on the deployed site while
    localhost works perfectly.
-4. Cloudflare dashboard → **Zero Trust → Access → Applications → Add an
-   application → Self-hosted**, with the Pages domain (plus any custom domain).
-   Add a policy: action **Allow**, Include → **Emails**, then list each person's
-   address individually. Free for up to 50 users.
+4. Cloudflare dashboard → **Zero Trust → Access controls → Applications → Create
+   new application → Self-hosted and private → Public DNS**. The current UI splits
+   this into three parts:
 
-   The team does not need company email addresses. Access authenticates by
-   address, not by domain, and the **One-time PIN** identity provider (on by
-   default) emails a six-digit code to any address, personal Gmail included. You
-   can add Google as an identity provider later if one-click sign-in is worth the
-   setup.
+   - **Destinations** — leave *Subdomain* blank and pick the whole hostname
+     `accountmanagementvue.pages.dev` from the *Domain* dropdown. Cloudflare lists
+     `.pages.dev` hostnames there even though the zone is not yours. Leave *Path*
+     empty; that is what makes the app cover every URL rather than one page.
+   - **Policies** — action **Allow**, Include → **Emails**, each person's address
+     as its own entry. Free for up to 50 users.
+   - **Sources** — auto-fills to *All authenticated users*. The policy is what
+     narrows it.
 
    > Use `Emails` with explicit addresses, **not** `Emails ending in` →
    > `@gmail.com`. The latter admits every Gmail account on earth, which is the
    > exact opposite of the intent.
 
+   The team does not need company email addresses — Access authenticates by
+   address, not by domain. But see the One-time PIN gotcha below before adding
+   anyone; personal Gmail only works if that login method is switched on.
+
    Cloudflare Access and Firebase's authorized domains are unrelated: Access
    gates the page by the reader's email, authorized domains is about the site's
    own hostname. The board itself never sees anyone's email address — people type
    a display name.
+
+### What Access actually covers
+
+Everything on the hostname, not just `index.html`. Verified 2026-08-01 from an
+unauthenticated client: `/`, `/README.md`,
+`/account-board-implementation-plan.md`, `/database.rules.json`, `/.gitignore`,
+`/firebase-config.js` and `/app.js` all return **302 to the Access login**.
+
+This matters because Pages uploads the repo verbatim — the docs and the rules
+file are genuinely served, and before Access was configured they were readable by
+anyone with the URL. None of it is a credential leak, but `database.rules.json`
+hands a reader the exact shape of the database. Access is the only thing closing
+that. `.assetsignore` does **not**; it is inert on Pages and only applies to a
+Workers deploy. See the comments in that file.
+
+### Adding and removing people
+
+**Access controls → Policies → Team**, edit the Include rule, save. No redeploy,
+nothing to change in this repo.
+
+The two directions are not symmetric, and this is the thing to know:
+
+- **Adding** takes effect at the person's next login — effectively immediately.
+- **Removing** does not end an existing session. They keep access until their
+  session expires, which is the *Session Duration* set on the application. To cut
+  it off now, revoke the session under **Team & Resources → Users**.
+
+So a long session duration means fewer PIN emails and slower revocation. Note
+also that a session duration set on the *policy* overrides the one on the
+application, which is easy to miss.
 
 ## Testing
 
@@ -235,6 +277,14 @@ want the box fully closed:
 The `Setup A` / `Setup B` entries in the activity log are from that verification
 run. They scroll off once there are ten real entries.
 
+Verified against the deployed site on 2026-08-01:
+
+- [x] The board loads on `accountmanagementvue.pages.dev`, anonymous sign-in
+      succeeds, and the activity log renders — i.e. deploy step 3 worked
+- [x] Every path on the hostname 302s to the Access login when unauthenticated
+- [ ] **A teammate who is not the account owner can actually log in.** Blocked on
+      the One-time PIN gotcha below. Do not skip this one.
+
 ## The three things that actually matter
 
 Everything else here is straightforward. These three are where this kind of app
@@ -267,6 +317,14 @@ on `visibilitychange` covers a listener that died while the laptop was asleep.
 ## Limits and gotchas
 
 - **Authorized domains** — see deploy step 3. The single most common failure.
+- **The Access login page must offer One-time PIN.** As of 2026-08-01 the login
+  screen for this app offers only **Cloudflare** as a sign-in method, which
+  authenticates against a *Cloudflare dashboard account* — so a teammate with a
+  plain Gmail address and no Cloudflare account cannot get in, no matter that
+  their address is on the policy. Fix it under **Zero Trust → Settings →
+  Authentication → Login methods** by enabling **One-time PIN**, which emails a
+  six-digit code to any address. Test with a real teammate's address in a private
+  window before telling the team the board is ready.
 - **Spark tier allows 100 simultaneous connections.** Fine for a team; worth
   knowing before this gets shared more widely.
 - **A rule validation failure rejects the whole write** and surfaces as a
