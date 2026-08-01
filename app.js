@@ -665,7 +665,10 @@ function renderIdentity() {
     who.hidden = true;
     return;
   }
-  who.textContent = state.identity.isAdmin
+  // The manual toggle has no email to show, so its label already says "owner
+  // mode" on its own — appending "· owner" to that just stutters.
+  const named = state.identity.source === 'access';
+  who.textContent = state.identity.isAdmin && named
     ? `${state.identity.email} · owner`
     : state.identity.email;
   who.dataset.admin = String(state.identity.isAdmin);
