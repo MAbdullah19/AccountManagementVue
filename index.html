@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Account board</title>
+<title>VuePulse</title>
 <meta name="color-scheme" content="light">
 <!-- Inline so the browser's automatic /favicon.ico request never 404s, and so
      there is still no second file to deploy. Fully percent-encoded: an
@@ -31,9 +31,13 @@
 <main class="shell">
 
   <div class="topbar">
-    <div class="brand">
-      <span class="brand-mark" aria-hidden="true"></span>
-      <span class="brand-text">ACCOUNT BOARD</span>
+    <div class="topbar-left">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-text">ACCOUNT BOARD</span>
+      </div>
+      <!-- The log lives on its own page so the board stays one screen. -->
+      <nav class="nav"><a href="./activity.html">Activity</a></nav>
     </div>
     <div class="topbar-right">
       <!-- Only rendered once Cloudflare Access has named the reader. -->
@@ -46,9 +50,9 @@
   </div>
 
   <header class="head">
-    <h1>Shared accounts</h1>
-    <p class="sub">One person at a time on each one. Claim it before you use it,
-      release it when you are done.</p>
+    <h1>VuePulse</h1>
+    <p class="sub">One person at a time on each account. Claim it before you use
+      it, release it when you are done.</p>
   </header>
 
   <!-- Shown only when setup is incomplete or sign-in fails. -->
@@ -62,19 +66,6 @@
 
   <p class="board-empty" id="board-empty" hidden></p>
 
-  <section class="activity">
-    <h2>Recent activity</h2>
-    <ul class="log" id="log-list">
-      <li class="log-empty">No activity yet.</li>
-    </ul>
-  </section>
-
-  <footer class="foot">
-    <p>Honour system — this board tells you who has an account, it does not
-      enforce anything. The people listed on a card are a reminder of who it is
-      for, not a restriction on who can claim it.</p>
-  </footer>
-
 </main>
 
 <!-- Cloned once per account. Elements are found by data-el rather than by id,
@@ -83,7 +74,7 @@
   <article class="card" data-state="loading">
 
     <header class="card-head">
-      <h2 class="card-label" data-el="label">—</h2>
+      <h2 class="card-label" data-el="label"></h2>
       <p class="card-desc" data-el="description" hidden></p>
     </header>
 
@@ -96,23 +87,17 @@
         <label class="field">
           <span class="label">Your name</span>
           <input data-el="name" type="text" maxlength="40" autocomplete="name"
-                 placeholder="e.g. Ayesha K." required>
+                 placeholder="e.g. Muhammad Abdullah" required>
         </label>
 
-        <!-- Collapsed so the common path stays name-then-Claim. An empty
-             duration means "the usual", which app.js reads as 30 minutes. -->
-        <details class="more">
-          <summary>Add a note or change the duration</summary>
-          <label class="field">
-            <span class="label">What for? <span class="muted">(optional)</span></span>
-            <input data-el="note" type="text" maxlength="120"
-                   placeholder="e.g. running the monthly export">
-          </label>
-          <label class="field field-short">
-            <span class="label">Expected minutes</span>
-            <input data-el="minutes" type="number" min="1" max="480" step="1" value="30">
-          </label>
-        </details>
+        <!-- Optional: an empty duration means "the usual", which app.js reads
+             as 30 minutes. In sight rather than behind a disclosure, because
+             there is only one field left to show. -->
+        <label class="field field-short">
+          <span class="label">Minutes <span class="muted">(optional)</span></span>
+          <input data-el="minutes" type="number" min="1" max="480" step="1"
+                 inputmode="numeric" placeholder="30">
+        </label>
 
         <button class="btn btn-primary" data-el="claim-btn" type="submit">Claim</button>
       </form>
@@ -123,7 +108,7 @@
     <!-- held / overdue -->
     <div class="view" data-el="view-held" hidden>
       <p class="state-word" data-el="held-word">In use</p>
-      <p class="holder" data-el="holder">—</p>
+      <p class="holder" data-el="holder"></p>
       <p class="state-sub" data-el="held-meta"></p>
       <p class="held-note" data-el="held-note" hidden></p>
 
@@ -134,12 +119,12 @@
           <label class="field" data-el="force-who-field" hidden>
             <span class="label">Your name</span>
             <input data-el="force-who" type="text" maxlength="40"
-                   placeholder="e.g. Ayesha K." autocomplete="name">
+                   placeholder="e.g. Muhammad Abdullah" autocomplete="name">
           </label>
           <label class="field">
-            <span class="label">Force release <span class="muted">— reason required</span></span>
+            <span class="label">Force release <span class="muted">(reason required)</span></span>
             <input data-el="force-reason" type="text" maxlength="120"
-                   placeholder="e.g. Ayesha left for the day">
+                   placeholder="e.g. Abdullah left for the day">
           </label>
           <button class="btn btn-quiet" data-el="force-btn" type="submit" disabled>Force release</button>
           <p class="force-as muted" data-el="force-as" hidden></p>
@@ -160,7 +145,7 @@
         <form data-el="roster-form" novalidate>
           <label class="field">
             <span class="label">Name</span>
-            <input data-el="roster-name" type="text" maxlength="40" placeholder="e.g. Ayesha K.">
+            <input data-el="roster-name" type="text" maxlength="40" placeholder="e.g. Muhammad Abdullah">
           </label>
           <label class="field">
             <span class="label">Note <span class="muted">(optional)</span></span>

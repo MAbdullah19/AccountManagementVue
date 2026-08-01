@@ -1,23 +1,20 @@
-// Entry point: wiring, rendering and event handlers.
+// The board: wiring, rendering and event handlers.
 //
 // Firebase is imported from the CDN as ES modules — no npm, no build step.
 // The version is pinned deliberately; do not switch to a floating tag.
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
-import { getDatabase, ref, onValue, get, query, limitToLast }
-  from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js';
-import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
-import { firebaseConfig } from './firebase-config.js';
-import { initClock, serverNow, formatElapsed, formatDuration, formatTimeOfDay, formatLogTime }
+// Startup itself lives in boot.js, which the activity page shares.
+import { ref, onValue, get } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js';
+import { initClock, serverNow, formatElapsed, formatDuration, formatTimeOfDay }
   from './clock.js';
 import { claim, release, forceRelease } from './lock.js';
 import { createAccount, renameAccount, deleteAccount, addUser, removeUser } from './accounts.js';
 import { loadIdentity } from './identity.js';
+import { connect, showBanner, watchConnection, renderWho } from './boot.js';
 
 const el = (id) => document.getElementById(id);
 
 const NAME_KEY = 'account-board:name';
 const DEFAULT_MINUTES = 30;
-const LOG_LIMIT = 12;
 
 // Set once in start(). Handlers are wired per card and would otherwise all have
 // to close over it.
@@ -32,7 +29,6 @@ const state = {
   identity: { email: '', name: '', isAdmin: false, source: 'none' },
   connected: false,
   everConnected: false,
-  log: [],
 };
 
 // accountId -> card object. Cards are kept and updated in place rather than
@@ -40,14 +36,6 @@ const state = {
 // halfway through typing into another.
 const cards = new Map();
 let addCard = null;
-
-/* ---------------------------------------------------------------- banner */
-
-function showBanner(title, body) {
-  el('banner-title').textContent = title;
-  el('banner-body').textContent = body;
-  el('banner').hidden = false;
-}
 
 /* ------------------------------------------------------------ saved name */
 
@@ -78,20 +66,20 @@ function setMsg(node, text, tone = 'info') {
 
 const MESSAGES = {
   taken: 'Someone claimed it a moment ago.',
-  'not-holder': 'The board says someone else holds it now — use Force release.',
+  'not-holder': 'The board says someone else holds it now. Use Force release.',
   'already-free': 'It was already free.',
   'no-reason': 'Type a reason first.',
-  invalid: 'Check the name (1–40 characters), note (up to 120) and minutes (1–480).',
-  error: 'That write was rejected. Check the name and note lengths, then try again.',
+  invalid: 'Check the name (1 to 40 characters) and the minutes (1 to 480).',
+  error: 'That write was rejected. Check the length of what you typed, then try again.',
 };
 
 const ADMIN_MESSAGES = {
-  invalid: 'Check the account name (1–60 characters) and description (up to 120).',
+  invalid: 'Check the account name (1 to 60 characters) and description (up to 120).',
   error: 'That write was rejected. Try again.',
 };
 
 const ROSTER_MESSAGES = {
-  invalid: 'Check the name (1–40 characters) and note (up to 60).',
+  invalid: 'Check the name (1 to 40 characters) and note (up to 60).',
   error: 'That write was rejected. Try again.',
 };
 
@@ -193,8 +181,8 @@ function wireCard(card) {
     setMsg(els['claim-msg'], '');
 
     const holder = els.name.value.trim();
-    const note = els.note.value.trim();
-    // An emptied duration field means "the usual", not an error.
+    // An empty duration field means "the usual", not an error. It is optional,
+    // so that is the common case rather than the exception.
     const minutes = els.minutes.value.trim();
     const expectedMinutes = minutes === '' ? DEFAULT_MINUTES : Number(minutes);
 
@@ -212,14 +200,11 @@ function wireCard(card) {
 
     const account = card.account;
     const result = await whileBusy(els['claim-btn'], 'Claiming…', () =>
-      claim(db, account, { holder, email: state.identity.email, note, expectedMinutes })
+      claim(db, account, { holder, email: state.identity.email, expectedMinutes })
     );
     syncClaimButton(card);
 
-    if (result.ok) {
-      els.note.value = '';
-      return; // the listener redraws the card
-    }
+    if (result.ok) return; // the listener redraws the card
 
     // By now the listener has usually redrawn the card. If someone else won the
     // race the free view is hidden, so a message written there would never be
@@ -433,7 +418,7 @@ function wireCardAdmin(card) {
 
     const holder = isHeld(card.lock) ? card.lock.holder : '';
     els['delete-warn'].textContent = holder
-      ? `${holder} is holding this right now — deleting it will not tell them. The activity log keeps its history either way.`
+      ? `${holder} is holding this right now, and deleting it will not tell them. The activity log keeps its history either way.`
       : 'The activity log keeps its history. This cannot be undone.';
 
     els['admin-links'].hidden = true;
@@ -546,7 +531,7 @@ function renderHeldMeta(card) {
   const parts = [`Since ${formatTimeOfDay(lock.claimedAt)}`];
 
   if (overdue) {
-    parts.push(`held ${formatDuration(serverNow() - lock.claimedAt)} — still in use?`);
+    parts.push(`held ${formatDuration(serverNow() - lock.claimedAt)}, still in use?`);
   } else {
     parts.push(`${formatElapsed(serverNow() - lock.claimedAt)} elapsed`);
     if (typeof lock.expectedMinutes === 'number') {
@@ -664,7 +649,7 @@ function renderEmptyState() {
   }
 
   node.textContent = state.identity.isAdmin
-    ? 'No accounts yet — add the first one above.'
+    ? 'No accounts yet. Add the first one above.'
     : 'No accounts have been set up on this board yet.';
   node.hidden = false;
 }
@@ -674,119 +659,26 @@ function renderEmptyState() {
 function updateTitle() {
   const total = state.accounts.length;
   if (!total) {
-    document.title = 'Account board';
+    document.title = 'VuePulse';
     return;
   }
 
   const free = state.accounts.filter((account) => !isHeld(state.locks[account.id])).length;
   document.title = free
-    ? `○ ${free} of ${total} free — Account board`
-    : `● All ${total} in use — Account board`;
-}
-
-/* -------------------------------------------------------------- identity */
-
-function renderIdentity() {
-  const who = el('who');
-  if (!state.identity.email) {
-    who.hidden = true;
-    return;
-  }
-  // The manual toggle has no email to show, so its label already says "owner
-  // mode" on its own — appending "· owner" to that just stutters.
-  const named = state.identity.source === 'access';
-  who.textContent = state.identity.isAdmin && named
-    ? `${state.identity.email} · owner`
-    : state.identity.email;
-  who.dataset.admin = String(state.identity.isAdmin);
-  who.hidden = false;
-}
-
-/* -------------------------------------------------------- activity log */
-
-// Names and reasons are free text typed by colleagues, so every line is built
-// with textContent. Nothing here touches innerHTML.
-function describe(entry) {
-  // The name is typed and the email is not, so the email is shown alongside it
-  // — the line has to say who really did this, not only who said they did.
-  // Omitted when they are the same string, which is how force-release entries
-  // are written, and absent entirely from anything logged before this existed.
-  const shown = entry.name || 'Someone';
-  const name = entry.email && entry.email !== entry.name
-    ? `${shown} (${entry.email})`
-    : shown;
-
-  // v1 entries predate multiple accounts and carry no label.
-  const target = entry.accountLabel ? `${entry.accountLabel}` : 'the account';
-
-  switch (entry.action) {
-    case 'claimed':
-      return `${name} claimed ${target}`;
-    case 'released':
-      return `${name} released ${target}`;
-    case 'force-released': {
-      const who = entry.heldBy ? ` (held by ${entry.heldBy})` : '';
-      const why = entry.reason ? ` — “${entry.reason}”` : '';
-      return `${name} force-released ${target}${who}${why}`;
-    }
-    default:
-      return `${name} ${entry.action || 'did something'}`;
-  }
-}
-
-function logLine(entry) {
-  const li = document.createElement('li');
-  const time = document.createElement('span');
-  time.className = 'log-time';
-  time.textContent = typeof entry.at === 'number' ? formatLogTime(entry.at) : '—';
-  li.append(time, document.createTextNode(` — ${describe(entry)}`));
-  return li;
-}
-
-function renderLog() {
-  const list = el('log-list');
-  list.textContent = '';
-
-  if (!state.log.length) {
-    const empty = document.createElement('li');
-    empty.className = 'log-empty';
-    empty.textContent = 'No activity yet.';
-    list.append(empty);
-    return;
-  }
-
-  for (const entry of state.log) list.append(logLine(entry));
-}
-
-// limitToLast hands entries back oldest-first; the board reads newest-first.
-function readLog(snap) {
-  const entries = [];
-  snap.forEach((child) => {
-    entries.push(child.val());
-  });
-  return entries.reverse();
+    ? `○ ${free} of ${total} free · VuePulse`
+    : `● All ${total} in use · VuePulse`;
 }
 
 /* ------------------------------------------------------------ connection */
 
-// This must reflect the connection, not the age of the last message. onValue
-// only fires on change, so an account sitting free for two hours is perfectly
-// healthy and a "last synced" indicator would libel it.
-function setConnected(connected) {
+// A frozen page showing "Available" is worse than no board at all, so a stale
+// reading has to look stale. boot.js owns the indicator itself; this is the
+// board's own reaction to it.
+function setConnected(connected, everConnected) {
   state.connected = connected;
-  if (connected) state.everConnected = true;
+  state.everConnected = everConnected;
 
-  const conn = el('conn');
-  conn.dataset.state = connected ? 'live' : state.everConnected ? 'offline' : 'connecting';
-  el('conn-label').textContent = connected
-    ? 'live'
-    : state.everConnected
-      ? 'reconnecting…'
-      : 'connecting…';
-
-  // A frozen page showing "Available" is worse than no board at all, so a
-  // stale reading has to look stale.
-  const stale = String(!connected && state.everConnected);
+  const stale = String(!connected && everConnected);
   for (const card of cards.values()) card.root.dataset.stale = stale;
 }
 
@@ -805,37 +697,16 @@ function tick() {
 
 /* ---------------------------------------------------------------- startup */
 
-// A config object that still has placeholder values would fail deep inside the
-// SDK with an unhelpful error. Catch it here and say what to do instead.
-function configLooksReal(config) {
-  return Boolean(config && config.apiKey && config.databaseURL && config.projectId);
-}
-
 async function start() {
-  const app = initializeApp(firebaseConfig);
-  db = getDatabase(app);
-
   // Started before sign-in so the two round trips overlap; awaited after, so a
   // sign-in failure still reports itself first.
   const identityPromise = loadIdentity();
 
-  // Anonymous auth is not about identifying people — it exists so the database
-  // rules can require `auth != null` and shut out internet scanners. Who the
-  // reader *is* comes from Cloudflare Access, in identity.js.
-  try {
-    await signInAnonymously(getAuth(app));
-  } catch (err) {
-    showBanner(
-      'Could not sign in',
-      `Anonymous sign-in failed (${err.code || err.message}). ` +
-      'Check that Anonymous is enabled under Firebase → Authentication → Sign-in method, ' +
-      'and that this domain is listed under Authentication → Settings → Authorized domains.'
-    );
-    return;
-  }
+  db = await connect();
+  if (!db) return; // boot.js has already said why on the page
 
   state.identity = await identityPromise;
-  renderIdentity();
+  renderWho(state.identity);
 
   // Draw once before any snapshot arrives. Every other renderBoard() call is
   // driven by a listener, so without this the page stays blank until the first
@@ -845,7 +716,7 @@ async function start() {
   initClock(db);
   setInterval(tick, 1000);
 
-  onValue(ref(db, '.info/connected'), (snap) => setConnected(snap.val() === true));
+  watchConnection(db, setConnected);
 
   // onValue fires immediately with the current value, then again on every
   // change — the first callback is not a change event.
@@ -858,7 +729,7 @@ async function start() {
     },
     (err) => showBanner(
       'Cannot read the board',
-      `${err.message} — check the Realtime Database rules have been published.`
+      `${err.message}. Check that the Realtime Database rules have been published.`
     )
   );
 
@@ -870,17 +741,8 @@ async function start() {
     },
     (err) => showBanner(
       'Cannot read the board',
-      `${err.message} — check the Realtime Database rules have been published.`
+      `${err.message}. Check that the Realtime Database rules have been published.`
     )
-  );
-
-  onValue(
-    query(ref(db, 'log'), limitToLast(LOG_LIMIT)),
-    (snap) => {
-      state.log = readLog(snap);
-      renderLog();
-    },
-    (err) => console.warn('[board] cannot read the log', err)
   );
 
   // Cheap insurance against a listener that died while the laptop was asleep.
@@ -891,29 +753,17 @@ async function start() {
 
 async function refresh() {
   try {
-    const [accountsSnap, locksSnap, logSnap] = await Promise.all([
+    const [accountsSnap, locksSnap] = await Promise.all([
       get(ref(db, 'accounts')),
       get(ref(db, 'locks')),
-      get(query(ref(db, 'log'), limitToLast(LOG_LIMIT))),
     ]);
     state.accounts = readAccounts(accountsSnap);
     state.accountsLoaded = true;
     state.locks = locksSnap.val() || {};
-    state.log = readLog(logSnap);
     renderBoard();
-    renderLog();
   } catch (err) {
     console.warn('[board] refetch on focus failed', err);
   }
 }
 
-if (configLooksReal(firebaseConfig)) {
-  start();
-} else {
-  showBanner(
-    'Setup incomplete',
-    'firebase-config.js has no project config yet. Copy the firebaseConfig object from ' +
-    'the Firebase console (Project settings → General → Your apps → Web app) into ' +
-    'firebase-config.js. See the README.'
-  );
-}
+start();

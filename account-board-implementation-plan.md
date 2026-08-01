@@ -248,7 +248,7 @@ Complete and verify each phase before starting the next. Commit at each boundary
 
 **Phase 6 — log.** Append on every claim / release / force-release; render the last 10. *Done when:* a full claim-release cycle produces two correctly ordered entries.
 
-**Phase 7 — polish.** `localStorage` name, empty states, disabled-button states, keyboard `Enter` to claim, a `<title>` that shows the status so it's readable in a pinned tab (e.g. `● In use — Ayesha K.`). Write the README.
+**Phase 7 — polish.** `localStorage` name, empty states, disabled-button states, keyboard `Enter` to claim, a `<title>` that shows the status so it's readable in a pinned tab (e.g. `● In use — Muhammad Abdullah`). Write the README.
 
 **Phase 8 — deploy.** Push to a private repo. Connect it to Cloudflare Pages: no build command, output directory `/`. Add the Pages domain to Firebase's **Authentication → Settings → Authorized domains**, or anonymous sign-in will fail in production while working perfectly on localhost. Then set up Cloudflare Access with an email policy for the team.
 

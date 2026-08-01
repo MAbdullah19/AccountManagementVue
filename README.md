@@ -47,16 +47,22 @@ This is the part most likely to be relitigated by whoever inherits it, so:
 ## How the team uses it
 
 Available: type your name and click **Claim**. Your name is remembered, so next
-time it really is one click. A note and a different duration are behind **Add a
-note or change the duration**; leaving the duration alone means 30 minutes.
+time it really is one click. **Minutes** is optional and sits in plain sight;
+leaving it empty means 30.
 
 In use: the card is red with the holder's name, when they started, a live
 elapsed timer, and their estimated finish. If it is you, there is a **Release**
 button. If it is not, there is **Force release** — type why, and both names go
 into the activity log.
 
+The log is its own page, reached from **Activity** in the top bar, so the board
+stays one screen however long the history gets.
+
 The tab title carries the whole board — `○ 3 of 5 free` — so it is readable
 without switching to it.
+
+The board is called **VuePulse** on screen. That is the only place the name
+appears; nothing in the code depends on it.
 
 ## Stack
 
@@ -85,9 +91,12 @@ recorded here so it does not need to be had again.
 ## Layout
 
 ```
-index.html          markup, card templates + inline critical styles
-styles.css          all styling and the design tokens
-app.js              entry point, wiring, rendering, event handlers
+index.html          the board: markup, card templates + inline critical styles
+activity.html       the activity log, on its own page
+styles.css          all styling and the design tokens, shared by both pages
+app.js              the board: wiring, rendering, event handlers
+activity.js         the activity page: reads the log, renders it, writes nothing
+boot.js             Firebase init, sign-in, banner, connection pill, identity chip
 lock.js             claim / release / force-release transactions
 accounts.js         account metadata and roster writes
 identity.js         Cloudflare Access identity + the owner check
@@ -98,6 +107,10 @@ preview.html        every card state, rendered without Firebase
 ```
 
 Flat on purpose. No `src/`, no `components/`, no `utils/`.
+
+There are two pages and therefore two entry points. `boot.js` exists only
+because both need the same six lines of Firebase startup — it is a shared
+prelude, not a framework, and nothing page-specific belongs in it.
 
 `preview.html` reads the real `<template>` elements out of `index.html` and
 fills them with fixtures, so available / in use / overdue / rosters / owner
@@ -173,7 +186,7 @@ one.
   status           "free" | "held"
   holder           string, 1–40             (absent when free)
   email            string, 1–120            (absent when free, and off the edge)
-  note             string, 0–120            (optional — what they're doing)
+  note             string, 0–120            (no longer written — see below)
   claimedAt        number, epoch ms         (absent when free)
   expectedMinutes  number, 1–480            (absent when free)
 
@@ -188,10 +201,17 @@ one.
   heldBy         string    — force-released only: who was holding it
 ```
 
+**The lock's `note` is legacy.** It was the "What for?" field on the claim form,
+which is gone: it made the common path two decisions instead of one, and almost
+nobody filled it in. `lock.js` still accepts and validates it and the card still
+renders it, so notes written before this change keep displaying, but nothing in
+the UI writes one any more. The rules still allow it, which is what makes those
+old locks readable.
+
 **`holder` is typed and `email` is not.** The display name is whatever someone
 put in the box; the email is the one Cloudflare Access authenticated before the
 page loaded. Where they disagree, the email is the one to believe, and the log
-shows both — `Ayesha K. (ayesha@vuepulse.com) claimed …` — so a line says who
+shows both — `Muhammad Abdullah (abdullah@vuepulse.com) claimed …` — so a line says who
 really did something rather than only who said they did.
 
 Force-release entries are the exception: they carry the email as the `name` too,
