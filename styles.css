@@ -9,34 +9,39 @@
    colourblindness. Gradients stay on surfaces — text always sits on flat
    colour, never on a gradient mid-stop, so contrast stays checkable. */
 
+/* Every value below is sampled from logo.png rather than picked by eye: the
+   mark is #EC1C24 falling to #B0121F with a #780000 shadow, on a #1A1A1A
+   ground. The greys are neutral for the same reason — the old ones carried a
+   blue tint that read as off-brand next to the real black. */
 :root {
-  /* ink */
-  --ink:        #0d0e11;
-  --ink-2:      #24262d;
-  --ink-soft:   #5f6572;
-  --ink-faint:  #8d929d;
+  /* ink — the logo's black */
+  --ink:        #1a1a1a;
+  --ink-2:      #2e2e30;
+  --ink-soft:   #606065;
+  --ink-faint:  #8e8e94;
 
   /* paper */
   --paper:      #ffffff;
-  --paper-2:    #f7f8fa;
-  --paper-3:    #eef0f4;
-  --line:       #e2e5ea;
-  --line-2:     #cfd3db;
+  --paper-2:    #f7f7f8;
+  --paper-3:    #eeeef0;
+  --line:       #e4e4e7;
+  --line-2:     #d1d1d6;
 
   /* red — the only hue in the palette */
-  --red:        #e01e37;  /* white text on this is 4.76:1 */
-  --red-deep:   #a3101f;  /* white text on this is 7.9:1  */
-  --red-ink:    #a3101f;  /* red text on white            */
-  --red-wash:   #fdf2f4;
+  --red:        #e01b24;  /* white text on this is 4.8:1 */
+  --red-deep:   #b0121f;  /* white text on this is 7.1:1 */
+  --red-ink:    #b0121f;  /* red text on white           */
+  --red-wash:   #fdf2f3;
+  --red-shadow: #780000;  /* the darkest note in the mark */
 
   /* surfaces */
-  --grad-red:   linear-gradient(140deg, #e82740 0%, #cc1830 45%, #8f0e1b 100%);
-  --grad-over:  linear-gradient(140deg, #a3101f 0%, #5d0b13 55%, #15161a 100%);
-  --grad-free:  linear-gradient(160deg, #ffffff 0%, #f7f8fa 100%);
-  --grad-ink:   linear-gradient(140deg, #24262d 0%, #0d0e11 100%);
+  --grad-red:   linear-gradient(140deg, #ec1c24 0%, #c4141f 45%, #8a0a13 100%);
+  --grad-over:  linear-gradient(140deg, #b0121f 0%, #780000 55%, #1a1a1a 100%);
+  --grad-free:  linear-gradient(160deg, #ffffff 0%, #f7f7f8 100%);
+  --grad-ink:   linear-gradient(140deg, #2e2e30 0%, #1a1a1a 100%);
 
-  --shadow:     0 1px 2px rgba(13, 14, 17, 0.05), 0 8px 24px -12px rgba(13, 14, 17, 0.18);
-  --shadow-red: 0 1px 2px rgba(143, 14, 27, 0.20), 0 14px 30px -14px rgba(143, 14, 27, 0.55);
+  --shadow:     0 1px 2px rgba(26, 26, 26, 0.05), 0 8px 24px -12px rgba(26, 26, 26, 0.18);
+  --shadow-red: 0 1px 2px rgba(120, 0, 0, 0.20), 0 14px 30px -14px rgba(120, 0, 0, 0.55);
 
   --r-sm: 8px;
   --r:    12px;
@@ -135,13 +140,14 @@ body::before {
   border-radius: 3px;
 }
 
+/* The mark itself rather than a red square. cover, because logo.png is already
+   cropped square to the V with its own dark ground. */
 .brand-mark {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   flex: none;
   border-radius: 6px;
-  background: var(--grad-red);
-  box-shadow: var(--shadow-red);
+  background: #1a1a1a url("logo.png") center / cover no-repeat;
 }
 
 .topbar-right {
@@ -792,6 +798,20 @@ input:focus-visible {
   font-size: 12px;
   color: var(--ink-faint);
 }
+
+/* Shown to anyone who is not the owner, in place of the log. */
+.locked {
+  margin: 0;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--red);
+  border-radius: var(--r);
+  background: var(--paper-2);
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+
+.locked a { color: var(--red-ink); text-underline-offset: 3px; }
 
 /* ---------- narrow phones ---------- */
 

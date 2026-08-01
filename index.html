@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VuePulse</title>
+<title>VuePulse Account Board</title>
 <meta name="color-scheme" content="light">
-<!-- Inline so the browser's automatic /favicon.ico request never 404s, and so
-     there is still no second file to deploy. Fully percent-encoded: an
-     unencoded < or > makes the URL unparseable and Chrome silently falls back
-     to requesting /favicon.ico. -->
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%3E%3Crect%20width='16'%20height='16'%20rx='5'%20fill='%23e01e37'/%3E%3C/svg%3E">
+<!-- The real mark, so the tab is recognisable at a glance in a pinned window.
+     One file rather than the old inline square, which is why logo.png is the
+     single .png the repo does not ignore. -->
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="apple-touch-icon" href="logo.png">
 <!-- Critical styles: layout skeleton only, so the board never flashes unstyled. -->
 <style>
   :root { --w: 1080px; }
@@ -18,10 +18,10 @@
     margin: 0;
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background: #fff;
-    color: #0d0e11;
+    color: #1a1a1a;
   }
   .shell { max-width: var(--w); margin: 0 auto; padding: 28px 20px 56px; }
-  .card { border: 1px solid #e2e5ea; border-radius: 18px; padding: 22px; }
+  .card { border: 1px solid #e4e4e7; border-radius: 18px; padding: 22px; }
   [hidden] { display: none !important; }
 </style>
 <link rel="stylesheet" href="styles.css">
@@ -36,8 +36,8 @@
         <span class="brand-mark" aria-hidden="true"></span>
         <span class="brand-text">ACCOUNT BOARD</span>
       </div>
-      <!-- The log lives on its own page so the board stays one screen. -->
-      <nav class="nav"><a href="./activity.html">Activity</a></nav>
+      <!-- No link to activity.html on purpose: the log is the owner's, and an
+           unlinked page is one fewer thing for everyone else to bounce off. -->
     </div>
     <div class="topbar-right">
       <!-- Only rendered once Cloudflare Access has named the reader. -->

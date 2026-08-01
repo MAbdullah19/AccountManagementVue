@@ -98,14 +98,33 @@ function readLog(snap) {
 
 /* ---------------------------------------------------------------- startup */
 
+// Not a permission. Anyone already past Cloudflare Access can read /log
+// straight out of the database with devtools, because Firebase auth here is
+// anonymous and the rules cannot tell one reader from another. What this does
+// is keep the log off the screen of everyone it is not for. Same honesty as
+// the owner controls on the board — see the README before building on it.
+function showLocked() {
+  el('locked').hidden = false;
+  el('log-list').hidden = true;
+  el('sub').hidden = true;
+  // Nothing is connecting, so a pill that says "connecting…" forever would be
+  // a lie.
+  el('conn').hidden = true;
+}
+
 async function start() {
-  // Started before sign-in so the two round trips overlap.
-  const identityPromise = loadIdentity();
+  // Asked first, and on its own: a non-owner never reaches Firebase at all, so
+  // the log is not fetched into a page that is not going to show it.
+  const identity = await loadIdentity();
+  renderWho(identity);
+
+  if (!identity.isAdmin) {
+    showLocked();
+    return;
+  }
 
   db = await connect();
   if (!db) return;
-
-  renderWho(await identityPromise);
 
   initClock(db);
   watchConnection(db);

@@ -55,8 +55,9 @@ elapsed timer, and their estimated finish. If it is you, there is a **Release**
 button. If it is not, there is **Force release** — type why, and both names go
 into the activity log.
 
-The log is its own page, reached from **Activity** in the top bar, so the board
-stays one screen however long the history gets.
+The log is its own page at `/activity.html`, so the board stays one screen
+however long the history gets. It is **not linked from anywhere** and it shows
+the log only to the owner — see [The activity page](#the-activity-page).
 
 The tab title carries the whole board — `○ 3 of 5 free` — so it is readable
 without switching to it.
@@ -104,7 +105,14 @@ clock.js            server time offset + all time formatting
 firebase-config.js  firebaseConfig object (committed — see below)
 database.rules.json the rules to paste into the Firebase console
 preview.html        every card state, rendered without Firebase
+logo.png            the mark: favicon, wordmark, and the source of the palette
 ```
+
+`logo.png` is the one `.png` the repo does not ignore, because the deployed
+site needs it. It is `VuePulse Logo.png` cropped square to the mark and scaled
+to 256px; the source art stays ignored. Every colour in `styles.css` is sampled
+from it rather than picked by eye — `#EC1C24` falling to `#B0121F` with a
+`#780000` shadow, on a `#1A1A1A` ground.
 
 Flat on purpose. No `src/`, no `components/`, no `utils/`.
 
@@ -254,6 +262,33 @@ anything on top of it that needs to be. If the roster ever has to be
 authoritative, switch to Firebase Google sign-in for the owner so
 `auth.token.email` can be checked in the rules, and accept the second auth path
 through the app. This trade was made deliberately; see `plan.md` §2.2.
+
+### The activity page
+
+`/activity.html` shows the log to the owner and a "this page is for the board
+owner" line to everybody else, and it is deliberately not linked from the
+board. Reaching it means typing the URL.
+
+**This is a curtain, not a lock,** and it is important not to mistake it for
+one. A colleague who types the URL sees nothing, but the entries are still in
+Firebase, still readable by anyone already past Access with devtools open,
+because the rules can only say `auth != null`. The gate does mean a non-owner's
+browser never fetches the log at all — `activity.js` checks the identity before
+it touches Firebase — so it is not merely hidden with CSS. It is still not
+security.
+
+Two ways to make it real, if it ever has to be:
+
+- **Cloudflare Access, path-scoped.** A second Access application on the same
+  hostname with Path `activity.html` and a policy containing only the owner.
+  Blocks the page at the edge; does not hide the data in Firebase.
+- **Firebase Google sign-in**, so the rules can check `auth.token.email` on
+  `/log`. The only option that protects the data. See §2.2 of `plan.md`.
+
+Worth weighing before either: the log is what makes force release safe to leave
+open to everyone. Anyone can take an account, but everyone can see who did and
+why. Making it owner-only turns a self-policing record into something only one
+person audits.
 
 ### Why the email comes from `/api/identity` and not from Cloudflare directly
 

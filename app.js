@@ -659,14 +659,14 @@ function renderEmptyState() {
 function updateTitle() {
   const total = state.accounts.length;
   if (!total) {
-    document.title = 'VuePulse';
+    document.title = 'VuePulse Account Board';
     return;
   }
 
   const free = state.accounts.filter((account) => !isHeld(state.locks[account.id])).length;
   document.title = free
-    ? `○ ${free} of ${total} free · VuePulse`
-    : `● All ${total} in use · VuePulse`;
+    ? `○ ${free} of ${total} free · VuePulse Account Board`
+    : `● All ${total} in use · VuePulse Account Board`;
 }
 
 /* ------------------------------------------------------------ connection */

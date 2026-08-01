@@ -16,6 +16,11 @@ desktop.ini
 *.png
 step3.md
 
+# logo.png is the exception: it is the favicon and the wordmark, so the
+# deployed site needs it. Generated from "VuePulse Logo.png" (kept ignored, it
+# is the source art) cropped square to the mark and scaled to 256px.
+!logo.png
+
 # firebase-config.js is deliberately NOT ignored. Cloudflare Pages serves this
 # repo as-is with no build step, so the file has to be committed or the deployed
 # site cannot import it. The web API key in it is not a secret, and the repo is
