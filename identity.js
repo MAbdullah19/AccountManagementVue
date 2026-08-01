@@ -16,7 +16,7 @@
 
 // EDIT ME: who may manage accounts. Compared lowercased.
 const ADMIN_EMAILS = [
-  'bloodstone.08water@gmail.com',
+  'abdullahbinsalim.08@gmail.com',
 ];
 
 const IDENTITY_URL = '/cdn-cgi/access/get-identity';

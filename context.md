@@ -17,7 +17,7 @@ Last updated: 2026-08-01.
 | Hosting | Cloudflare Pages, no build step, output directory `/` |
 | Access team domain | `abdullahs-studio.cloudflareaccess.com` (account-wide, not per-app) |
 | Firebase project | `vue-account-board`, RTDB in `asia-southeast1` |
-| Owner / admin email | `bloodstone.08water@gmail.com` |
+| Owner / admin email | `abdullahbinsalim.08@gmail.com` — the address Access logs in with, and the one in `ADMIN_EMAILS` |
 | Account being tracked | `users@vuepulse.com` |
 
 ## Files
