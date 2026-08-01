@@ -286,8 +286,11 @@ Verified against the deployed site on 2026-08-01:
 - [x] The board loads on `accountmanagementvue.pages.dev`, anonymous sign-in
       succeeds, and the activity log renders — i.e. deploy step 3 worked
 - [x] Every path on the hostname 302s to the Access login when unauthenticated
-- [ ] **A teammate who is not the account owner can actually log in.** Blocked on
-      the One-time PIN gotcha below. Do not skip this one.
+- [~] **A teammate who is not the account owner can log in.** The mechanism is
+      verified — after enabling One-time PIN the login page serves an email field
+      (`name="email"`) instead of only the Cloudflare account button. Nobody has
+      actually completed a PIN round-trip from a second person's inbox. Do that
+      before telling the team the board is ready.
 
 ## The three things that actually matter
 
