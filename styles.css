@@ -582,7 +582,18 @@ html, body { overflow-x: clip; }
 
 /* ---------- page header ---------- */
 
-.head { margin-bottom: 20px; }
+/* The name of the board and the rule the board runs on are two separate reads,
+   so they sit on one row rather than stacking into a ragged block beneath the
+   masthead. The tagline takes the empty right half the title leaves behind,
+   and its first line rides the title's baseline. */
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 40px;
+  margin-bottom: 20px;
+}
 
 h1 {
   margin: 0;
@@ -593,11 +604,16 @@ h1 {
   overflow-wrap: anywhere;
 }
 
+/* Ragged-left against the title's ragged-right, and balanced so the two lines
+   come out near enough the same length instead of breaking mid-clause. */
 .sub {
-  margin: 8px 0 0;
+  margin: 0;
   font-size: 14px;
+  line-height: 1.5;
   color: var(--ink-soft);
-  max-width: 46ch;
+  max-width: 40ch;
+  text-align: right;
+  text-wrap: balance;
 }
 
 /* ---------- summary strip ---------- */
@@ -1687,6 +1703,17 @@ input:focus-visible {
 .locked a { color: var(--red-ink); text-underline-offset: 3px; }
 
 /* ---------- narrow phones ---------- */
+
+/* Below this the tagline has no right half to sit in, so it goes back under
+   the title and reads left-to-left with everything else. */
+@media (max-width: 640px) {
+  .head { display: block; }
+  .sub {
+    margin-top: 8px;
+    max-width: 46ch;
+    text-align: left;
+  }
+}
 
 /* The mark alone is enough once the nav link is also competing for the row.
    Kept above the main phone breakpoint because the topbar runs out of room
