@@ -81,8 +81,14 @@
 
   <header class="head">
     <h1>VuePulse</h1>
-    <p class="sub">One person at a time on each account. Claim it before you use
-      it, release it when you are done.</p>
+    <!-- A list rather than a sentence, because these are three separate rules
+         and a screen reader announcing "list of three" says as much about how
+         the board works as the words do. -->
+    <ul class="rules" aria-label="How this board works">
+      <li>One person at a time</li>
+      <li>Claim before you use</li>
+      <li>Release when you are done</li>
+    </ul>
   </header>
 
   <!-- The board answers "is this one free?". This answers "is anything free?",

@@ -582,18 +582,7 @@ html, body { overflow-x: clip; }
 
 /* ---------- page header ---------- */
 
-/* The name of the board and the rule the board runs on are two separate reads,
-   so they sit on one row rather than stacking into a ragged block beneath the
-   masthead. The tagline takes the empty right half the title leaves behind,
-   and its first line rides the title's baseline. */
-.head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px 40px;
-  margin-bottom: 20px;
-}
+.head { margin-bottom: 20px; }
 
 h1 {
   margin: 0;
@@ -604,16 +593,109 @@ h1 {
   overflow-wrap: anywhere;
 }
 
-/* Ragged-left against the title's ragged-right, and balanced so the two lines
-   come out near enough the same length instead of breaking mid-clause. */
+/* Prose under a title. The board's masthead uses .rules instead — this is for
+   pages whose subtitle is a real sentence, like the activity log's. */
 .sub {
-  margin: 0;
+  margin: 8px 0 0;
   font-size: 14px;
-  line-height: 1.5;
   color: var(--ink-soft);
-  max-width: 40ch;
-  text-align: right;
-  text-wrap: balance;
+  max-width: 46ch;
+}
+
+/* ---------- the masthead rule line ---------- */
+
+/* The board runs on three rules, and they used to be one sentence of prose
+   sitting in the wordmark's shadow — read once on the first visit and skipped
+   forever after. As three tracked beats spread along a hairline they stop
+   being a paragraph and become the page's masthead rule: the same uppercase
+   label voice as the card states and the field labels, at a width that fills
+   the row the short wordmark leaves empty.
+
+   Spread rather than left-packed, so the line ends where the summary strip
+   below it ends and the two read as one edge. */
+.rules {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 28px;
+  margin: 16px 0 0;
+  padding: 12px 0 0;  /* the 0 also drops the list's default 40px indent */
+  list-style: none;
+  counter-reset: rule;
+  font-size: 11.5px;
+  font-weight: 650;
+  line-height: 1.4;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* Spread across a 1080px column, three unnumbered fragments read as three
+   columns of a table that lost its header. The numerals are what make the
+   distance deliberate: they say sequence, which is what the three rules are.
+   Red, because they are the only thing on this line that is not text. */
+/* Staggered on the same curve as the cards, so the header arrives as part of
+   the same sequence rather than ahead of it. */
+.rules li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  animation: ruleIn 460ms var(--ease) both;
+}
+
+.rules li:nth-child(1) { animation-delay: 90ms; }
+.rules li:nth-child(2) { animation-delay: 170ms; }
+.rules li:nth-child(3) { animation-delay: 250ms; }
+
+@keyframes ruleIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.rules li::before {
+  counter-increment: rule;
+  content: counter(rule, decimal-leading-zero);
+  color: var(--red-ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+
+/* The hairline the beats hang from. */
+.rules::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: var(--line);
+}
+
+/* One brand segment drawn over the hairline's left end, echoing the 3px of red
+   pinned across the very top of the page. It draws itself in on load, which is
+   the only motion this line has that the beats do not.
+
+   Its own gradient rather than --grad-red: that one runs at 140°, which in a
+   box one pixel tall samples a single dark slice of itself and disappears
+   against the dark theme. This one runs along the segment and dies out at the
+   far end, so the red reads as bleeding into the hairline rather than as a
+   dash sitting on top of it. */
+.rules::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 1px;
+  /* Stated here as well as in the keyframes, because the reduced-motion block
+     at the foot of this file switches every animation off — and a segment that
+     only ever gets its width from a keyframe would vanish with it. */
+  width: 84px;
+  background: linear-gradient(90deg, var(--red-500) 0%, var(--red-700) 45%, transparent 100%);
+  animation: ruleDraw 700ms var(--ease) both;
+}
+
+@keyframes ruleDraw {
+  from { width: 0; }
+  to   { width: 84px; }
 }
 
 /* ---------- summary strip ---------- */
@@ -1704,14 +1786,16 @@ input:focus-visible {
 
 /* ---------- narrow phones ---------- */
 
-/* Below this the tagline has no right half to sit in, so it goes back under
-   the title and reads left-to-left with everything else. */
-@media (max-width: 640px) {
-  .head { display: block; }
-  .sub {
-    margin-top: 8px;
-    max-width: 46ch;
-    text-align: left;
+/* The three beats need about 690px of column to sit on one line, and a spread
+   row that wraps is worse than no spread at all — it drops the last beat onto
+   a line of its own and shoves the middle one to the right margin chasing it.
+   Below that width they stack into a left-aligned numbered list instead, and
+   the hairline goes back to being an ordinary heading rule. */
+@media (max-width: 780px) {
+  .rules {
+    display: grid;
+    gap: 7px;
+    justify-items: start;
   }
 }
 
