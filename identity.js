@@ -17,6 +17,8 @@
 // EDIT ME: who may manage accounts. Compared lowercased.
 const ADMIN_EMAILS = [
   'abdullahbinsalim.08@gmail.com',
+  'hamza@vuepulse.com',
+  'numaira@vuepulse.com'
 ];
 
 // EDIT ME: the Zero Trust team domain, without the scheme.
