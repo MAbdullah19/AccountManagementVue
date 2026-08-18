@@ -89,6 +89,43 @@
     <a href="./index.html">the board</a>.
   </p>
 
+  <!-- Narrowing the log by account and by date. Part of the owner's page, so
+       it is hidden until activity.js has been told who is reading — same gate
+       as the log itself, and it never appears on the locked view. -->
+  <form class="filters" id="filters" hidden aria-label="Filter the activity log">
+    <div class="filter-field">
+      <label class="label" for="filter-account">Account</label>
+      <select id="filter-account">
+        <option value="">All accounts</option>
+      </select>
+    </div>
+
+    <div class="filter-field filter-field-date">
+      <label class="label" for="filter-from">From</label>
+      <input id="filter-from" type="date">
+    </div>
+
+    <div class="filter-field filter-field-date">
+      <label class="label" for="filter-to">To</label>
+      <input id="filter-to" type="date">
+    </div>
+
+    <!-- The three ranges anyone actually asks for, as one click each. They only
+         write the two date fields, so what they did stays visible and stays
+         editable. -->
+    <div class="filter-presets" role="group" aria-label="Quick date ranges">
+      <button class="chip" id="range-today" type="button" data-range="today" aria-pressed="false">Today</button>
+      <button class="chip" id="range-7" type="button" data-range="7" aria-pressed="false">7 days</button>
+      <button class="chip" id="range-30" type="button" data-range="30" aria-pressed="false">30 days</button>
+    </div>
+
+    <button class="btn btn-quiet btn-sm filter-clear" id="filter-clear" type="button" hidden>Clear</button>
+  </form>
+
+  <!-- How much of the window survived the filters. Shown only while something
+       is filtering, because "showing 200 of 200" is noise. -->
+  <p class="filter-count" id="filter-count" hidden role="status"></p>
+
   <ul class="log" id="log-list" aria-live="polite">
     <li class="log-empty">Loading…</li>
   </ul>

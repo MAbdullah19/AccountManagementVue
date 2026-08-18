@@ -41,7 +41,8 @@ when, and when they expect to be done. That is the whole product.
   new teammate.
 - **One line for the whole board.** `2 of 5 accounts free`, with a meter, above
   the cards — the question people walk up with, answered before they read one.
-- **An append-only activity log**, on its own page.
+- **An append-only activity log**, on its own page, narrowable by account and by
+  date — today, the last 7 or 30 days, or any range you type.
 - **The tab title is the board** — `○ 3 of 5 free` — readable while pinned.
 - **Light and dark.** Follows the operating system by default; the toggle in the
   corner overrides it and is remembered.
@@ -225,10 +226,11 @@ so the database rules cannot tell one reader from another — they can only say
 
 - The **owner check hides buttons.** A teammate with devtools can still write to
   `/accounts`. It is a tidy-up, not a permission.
-- The **activity page** shows the log to the owner and an explanation to
-  everyone else, and nothing links to it. A non-owner's browser never fetches
-  the log — but the entries are still in Firebase and still readable by anyone
-  already past Access. A curtain, not a lock.
+- The **activity page** shows the log — and its filters — to the owner and an
+  explanation to everyone else, and nothing links to it. A non-owner's browser
+  never fetches the log — but the entries are still in Firebase and still
+  readable by anyone already past Access. A curtain, not a lock. The filters
+  narrow what is on screen; they are not a privacy boundary either.
 - **`firebase-config.js` is committed** because the static host must serve it.
   The web API key is not a secret and is designed to ship in client code, but
   the rules only require anonymous sign-in — so anyone holding that config can

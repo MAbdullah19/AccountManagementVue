@@ -1697,6 +1697,116 @@ input:focus-visible {
 
 /* ---------- the activity page ---------- */
 
+/* The filter bar wears the board's summary strip, because it sits in the same
+   place on the page and does the same job: framing what is below it before you
+   start reading lines. Fields are bottom-aligned so the controls make one row
+   whether or not a label sits above them. */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--paper-2);
+}
+
+.filters:not([hidden]) { animation: cardIn 260ms var(--ease) both; }
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+/* A date field is a fixed shape whatever you give it, so a wide one is just a
+   long empty box. The account name is the one thing here that can be long. */
+.filter-field-date { flex: 0 1 170px; }
+
+/* The card inputs are 16px and 44px tall because they are the thing you came to
+   the card to use. These are a header above a list, and sit one step down. */
+.filters select,
+.filters input {
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--field);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  padding: 9px 11px;
+  min-height: 42px;
+  width: 100%;
+  transition: border-color 140ms var(--ease), box-shadow 140ms var(--ease);
+}
+
+/* The dropdown arrow and the date picker are the browser's own. color-scheme is
+   set per theme on :root, so both already come up in the right colours — a
+   hand-drawn arrow would only be a second thing to keep in step. */
+.filters select { cursor: var(--cursor-hot); }
+
+.filters select:hover,
+.filters input:hover { border-color: var(--ink-faint); }
+
+.filters select:focus-visible,
+.filters input:focus-visible {
+  outline: none;
+  border-color: var(--red-600);
+  box-shadow: 0 0 0 3px var(--red-ring);
+}
+
+.filter-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: none;
+}
+
+.chip {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink-soft);
+  background: var(--paper);
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  padding: 0 15px;
+  min-height: 42px;
+  cursor: var(--cursor-hot);
+  transition: background 160ms var(--ease), border-color 160ms var(--ease),
+              color 160ms var(--ease), box-shadow 200ms var(--ease);
+}
+
+.chip:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+/* Lit means "this range is on", and clicking it again turns it off — the same
+   red the board uses for everything that is currently true of it. */
+.chip[aria-pressed="true"] {
+  color: #fff;
+  background: var(--grad-red);
+  border-color: transparent;
+  box-shadow: var(--shadow-red);
+}
+
+.chip:focus-visible {
+  outline: 2px solid var(--red-600);
+  outline-offset: 2px;
+}
+
+.filter-clear { flex: none; }
+
+.filter-count {
+  margin: 0 2px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.filter-count[data-tone="error"] { color: var(--red-ink); }
+
 /* The time is a fixed-width first column rather than a "12:04 — " prefix, so
    the lines stack into something scannable instead of a wall of prose. */
 .log {
@@ -1810,6 +1920,12 @@ input:focus-visible {
   .summary { gap: 12px; }
   .meter { flex-basis: 100%; order: 3; }
   .legend { flex: 1 1 auto; }
+
+  /* Two date fields side by side leave about 70px each here, which is not a
+     date. One control per row instead, with the chips sharing the last one. */
+  .filter-field, .filter-field-date { flex: 1 1 100%; }
+  .filter-presets { flex: 1 1 100%; }
+  .chip { flex: 1 1 0; }
 }
 
 @media (max-width: 420px) {
