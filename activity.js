@@ -46,6 +46,10 @@ function describe(entry) {
       const why = entry.reason ? `: “${entry.reason}”` : '';
       return `${name} force-released ${target}${who}${why}`;
     }
+    case 'joined-queue':
+      return `${name} joined the queue for ${target}`;
+    case 'left-queue':
+      return `${name} left the queue for ${target}`;
     default:
       return `${name} ${entry.action || 'did something'}`;
   }

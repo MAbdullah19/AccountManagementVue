@@ -25,10 +25,11 @@ team can reach it. Three things are being added:
 
 ### Non-goals — still true, do not build these
 
-Everything in v1 §1 stands. Nothing is enforced, there is no queue, no
-heartbeat, no auto-release, no integration with the services being shared. The
-roster is **reference text, not permission** — it does not stop anyone claiming
-anything, and it must not look like it does.
+Everything in v1 §1 stands. Nothing is enforced, no heartbeat, no auto-release,
+no integration with the services being shared. The roster is **reference text,
+not permission** — it does not stop anyone claiming anything, and it must not
+look like it does. The queue, added later (see `context.md`), holds to the
+same rule: it is a signal, not a reservation.
 
 ---
 
@@ -271,7 +272,6 @@ New, and the ones most likely to actually break:
 
 ## 6. Deferred again
 
-- **A queue.** Still only worth it if people actually collide.
 - **Slack / Discord webhook on release.** Still the strongest candidate for the
   next addition, and multi-account makes it more useful, not less.
 - **Enforced admin via Firebase Google sign-in.** See §2.2.

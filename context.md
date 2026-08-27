@@ -27,7 +27,8 @@ index.html          markup, card templates, inline critical styles
 styles.css          all styling and the design tokens
 app.js              startup, wiring, board rendering
 lock.js             claim / release / force-release transactions
-accounts.js         account metadata and roster writes
+queue.js            join / leave the per-account queue
+accounts.js         account metadata writes
 identity.js         Cloudflare Access identity + admin check
 functions/api/identity.js   Pages Function: reads the Access email at the edge
 clock.js            server time offset and all time formatting
@@ -41,7 +42,7 @@ account-board-implementation-plan.md   v1 spec, kept as history
 ```
 
 `preview.html` pulls the real `<template>` elements out of `index.html` and
-fills them with fixtures, so available / in use / overdue / empty roster can all
+fills them with fixtures, so available / in use / overdue / queued can all
 be looked at side by side without touching the live database. It earned its
 place immediately: it caught `.admin-form { display: flex }` quietly overriding
 the `hidden` attribute, which only worked because of the `!important` in
@@ -66,7 +67,7 @@ migrating to one.
 These come from v1 and have not been revisited:
 
 - Nothing is enforced. The board reports, it does not block.
-- No auto-release, no heartbeat, no queue.
+- No auto-release, no heartbeat. The queue (see below) is a signal, same rule.
 - Nobody logs into the board itself. People type a display name, remembered in
   `localStorage`. Access at the edge is the only real gate.
 - Force release stays available to everyone, with a required reason, and never
@@ -84,11 +85,36 @@ These come from v1 and have not been revisited:
   owner from anyone else. `plan.md` §2.2.
 - **Locks moved out from under accounts** to `/locks/{accountId}`, so
   owner-written metadata and everyone-written transaction paths stay separate.
-- **The roster is reference text, not permission.** It tells a teammate which
-  login is theirs. It does not restrict claiming and must not look like it does.
+
+## The roster: removed (2026-08-27)
+
+v2 shipped a per-account roster ("Who this is for") — reference text, not
+permission, naming who an account belonged to. It has since been removed from
+the dashboard at the requester's instruction: the card, the owner's add/remove
+controls, `accounts.js`'s `addUser`/`removeUser`, and the `users` schema under
+`/accounts/{id}` in `database.rules.json` are all gone. Any `users` children
+still sitting under old accounts in the live database are inert — nothing
+reads or writes them anymore — and were left in place rather than scripted out,
+consistent with how this project has always treated stale-node cleanup as a
+manual console step (see the lock migration in `plan.md` §3).
+
+## The queue (added after v2)
+
+Once an account has been held for **2.5 hours**, anyone else can join a queue
+for it — visible to everyone, and it's what tells the holder "people are
+waiting, please wrap up." Same honour-system rule as everything else: joining
+the queue reserves nothing, and the moment the account actually frees up,
+claiming is first-come-first-served regardless of queue position. Lives in
+`queue.js`, at `/queue/{accountId}/{entryId}` in the database, alongside
+`/accounts`, `/locks` and `/log`.
 
 ## Open items
 
+- [ ] **`database.rules.json` is not published yet** — it has a new `"queue"`
+      block, and the `users` schema under `/accounts/{id}` has been removed
+      along with the roster. Paste the updated file into Realtime Database →
+      Rules — until then, joining or leaving a queue reads as
+      `permission_denied at /queue`.
 - [ ] **The v2 rules are not published yet, and nothing works until they are.**
       Firebase denies any path the rules do not name, so the board currently
       reports `permission_denied at /locks`. Paste `database.rules.json` into

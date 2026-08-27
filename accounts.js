@@ -5,14 +5,12 @@
 // account, and last-write-wins is the right answer if they somehow are.
 //
 // Nothing here is enforced by the database rules — see identity.js for why.
-import { ref, push, update, remove } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js';
+import { ref, push, update } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js';
 import { serverNow } from './clock.js';
 import { isValidAccountId } from './lock.js';
 
 const MAX_LABEL = 60;
 const MAX_DESC = 120;
-const MAX_USER_NAME = 40;
-const MAX_USER_NOTE = 60;
 
 const trim = (value) => (typeof value === 'string' ? value.trim() : '');
 
@@ -46,7 +44,7 @@ export async function renameAccount(db, accountId, { label, description }) {
   if (!clean) return { ok: false, reason: 'invalid' };
 
   try {
-    // update() merges at this path, so createdAt and the roster survive.
+    // update() merges at this path, so createdAt survives.
     await update(ref(db, `accounts/${accountId}`), clean);
     return { ok: true };
   } catch (err) {
@@ -68,43 +66,6 @@ export async function deleteAccount(db, accountId) {
       [`accounts/${accountId}`]: null,
       [`locks/${accountId}`]: null,
     });
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, reason: 'error', error: err };
-  }
-}
-
-/* ----------------------------------------------------------------- roster */
-
-// The people an account is meant for. This is a note pinned to the card, not a
-// permission: it tells a teammate which login is theirs, and it does not stop
-// anyone claiming anything. Do not grow it into an allowlist without also
-// making the admin gate real — see identity.js.
-
-export async function addUser(db, accountId, { name, note }) {
-  if (!isValidAccountId(accountId)) return { ok: false, reason: 'invalid' };
-
-  const person = trim(name);
-  const detail = trim(note);
-  if (person.length < 1 || person.length > MAX_USER_NAME) return { ok: false, reason: 'invalid' };
-  if (detail.length > MAX_USER_NOTE) return { ok: false, reason: 'invalid' };
-
-  try {
-    const entry = detail ? { name: person, note: detail } : { name: person };
-    await push(ref(db, `accounts/${accountId}/users`), entry);
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, reason: 'error', error: err };
-  }
-}
-
-export async function removeUser(db, accountId, userId) {
-  if (!isValidAccountId(accountId) || !isValidAccountId(userId)) {
-    return { ok: false, reason: 'invalid' };
-  }
-
-  try {
-    await remove(ref(db, `accounts/${accountId}/users/${userId}`));
     return { ok: true };
   } catch (err) {
     return { ok: false, reason: 'error', error: err };

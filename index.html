@@ -142,6 +142,7 @@
 
     <header class="card-head">
       <h2 class="card-label" data-el="label"></h2>
+      <span class="queue-badge" data-el="queue-badge" hidden></span>
       <p class="card-desc" data-el="description" hidden></p>
     </header>
 
@@ -187,6 +188,26 @@
 
       <p class="held-note" data-el="held-note" hidden></p>
 
+      <!-- Anyone waiting for this account, once the holder's 2.5h protected
+           window has passed. Signal only — see queue.js — so nothing here
+           blocks a claim; it just makes waiting legible to the holder. -->
+      <div class="queue" data-el="queue">
+        <p class="queue-alert" data-el="queue-alert" hidden></p>
+        <h3 class="queue-head">Waiting<span class="queue-count" data-el="queue-count"></span></h3>
+        <ol class="queue-list" data-el="queue-list"></ol>
+
+        <label class="field" data-el="queue-who-field" hidden>
+          <span class="label">Your name</span>
+          <input data-el="queue-who" type="text" maxlength="40"
+                 placeholder="e.g. Muhammad Abdullah" autocomplete="name">
+        </label>
+        <button class="btn btn-quiet btn-sm" data-el="queue-join-btn" type="button" hidden>Join queue</button>
+        <button class="btn btn-quiet btn-sm" data-el="queue-leave-btn" type="button" hidden>Leave queue</button>
+        <p class="queue-wait-note muted" data-el="queue-wait-note" hidden></p>
+
+        <p class="msg" data-el="queue-msg" role="status"></p>
+      </div>
+
       <div class="actions">
         <button class="btn btn-primary" data-el="release-btn" type="button" hidden>Release</button>
 
@@ -207,30 +228,6 @@
       </div>
 
       <p class="msg" data-el="held-msg" role="status"></p>
-    </div>
-
-    <!-- Who the account is for. Reference, not permission — everyone sees it,
-         only the owner edits it. -->
-    <div class="roster" data-el="roster" hidden>
-      <h3 class="roster-head">Who this is for</h3>
-      <ul class="roster-list" data-el="roster-list"></ul>
-
-      <details class="more" data-el="roster-more" hidden>
-        <summary>Add a person</summary>
-        <form data-el="roster-form" novalidate>
-          <label class="field">
-            <span class="label">Name</span>
-            <input data-el="roster-name" type="text" maxlength="40" placeholder="e.g. Muhammad Abdullah">
-          </label>
-          <label class="field">
-            <span class="label">Note <span class="muted">(optional)</span></span>
-            <input data-el="roster-note" type="text" maxlength="60" placeholder="e.g. Finance">
-          </label>
-          <button class="btn btn-quiet btn-sm" data-el="roster-add" type="submit">Add</button>
-        </form>
-      </details>
-
-      <p class="msg" data-el="roster-msg" role="status"></p>
     </div>
 
     <!-- owner controls; never rendered for anyone else -->

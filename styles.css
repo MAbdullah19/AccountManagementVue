@@ -906,6 +906,11 @@ h1 {
 }
 
 .card-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  column-gap: 8px;
+  row-gap: 2px;
   padding-bottom: 14px;
   margin-bottom: 16px;
   border-bottom: 1px solid var(--line);
@@ -922,7 +927,30 @@ h1 {
   overflow-wrap: anywhere;
 }
 
+/* Visible at a glance without opening into the held view — the one thing
+   about a held card worth knowing before you even read the state word. */
+.queue-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--red-ink);
+  background: var(--red-wash);
+  border: 1px solid var(--red-ring);
+}
+
+.card[data-state="held"] .queue-badge,
+.card[data-state="overdue"] .queue-badge {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
 .card-desc {
+  flex: 1 1 100%;
   margin: 3px 0 0;
   font-size: 13px;
   color: var(--ink-soft);
@@ -1419,85 +1447,66 @@ input:focus-visible {
 .card[data-state="held"] .more > summary,
 .card[data-state="overdue"] .more > summary { color: rgba(255, 255, 255, 0.8); }
 
-/* ---------- roster ---------- */
+/* ---------- queue: who is waiting on a held account ---------- */
 
-.roster {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
+/* Only ever rendered inside the held/overdue view, so it never needs a
+   light-card variant. */
+.queue {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
 }
 
-.card[data-state="held"] .roster,
-.card[data-state="overdue"] .roster { border-top-color: rgba(255, 255, 255, 0.22); }
-
-.roster-head {
+.queue-head {
   margin: 0 0 9px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--ink-faint);
+  color: rgba(255, 255, 255, 0.7);
 }
 
-.card[data-state="held"] .roster-head,
-.card[data-state="overdue"] .roster-head { color: rgba(255, 255, 255, 0.7); }
+.queue-count { font-variant-numeric: tabular-nums; }
 
-.roster-list {
-  margin: 0;
+.queue-list {
+  margin: 0 0 10px;
   padding: 0;
   list-style: none;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 6px;
 }
 
-.roster-list li {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border: 1px solid var(--line-2);
-  border-radius: 999px;
-  background: var(--paper);
-  font-size: 13px;
-  max-width: 100%;
-  transition: border-color 140ms var(--ease), background 140ms var(--ease);
-}
-
-.roster-list li:hover { border-color: var(--ink-faint); }
-
-.card[data-state="held"] .roster-list li,
-.card[data-state="overdue"] .roster-list li {
+.queue-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--r-sm);
   background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.3);
+  font-size: 13px;
 }
 
-.card[data-state="held"] .roster-list li:hover,
-.card[data-state="overdue"] .roster-list li:hover { border-color: rgba(255, 255, 255, 0.55); }
+.queue-name { font-weight: 600; overflow-wrap: anywhere; }
 
-.roster-name { font-weight: 600; overflow-wrap: anywhere; }
-
-.roster-note {
-  color: var(--ink-faint);
+.queue-since {
+  margin-left: auto;
+  color: rgba(255, 255, 255, 0.75);
   font-size: 12px;
-  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.card[data-state="held"] .roster-note,
-.card[data-state="overdue"] .roster-note { color: rgba(255, 255, 255, 0.72); }
-
-.roster-empty {
+.queue-empty {
   border: 0 !important;
   background: none !important;
   padding: 0 !important;
-  color: var(--ink-faint);
+  color: rgba(255, 255, 255, 0.7);
   font-size: 13px;
 }
 
-.card[data-state="held"] .roster-empty,
-.card[data-state="overdue"] .roster-empty { color: rgba(255, 255, 255, 0.7); }
-
-.roster-remove {
+.queue-remove {
   font: inherit;
   font-size: 15px;
   line-height: 1;
@@ -1505,29 +1514,35 @@ input:focus-visible {
   border: 0;
   padding: 0 0 0 2px;
   cursor: var(--cursor-hot);
-  color: var(--ink-faint);
+  color: rgba(255, 255, 255, 0.75);
   transition: color 140ms var(--ease), transform 140ms var(--ease);
 }
 
-.roster-remove:hover { color: var(--red-ink); transform: scale(1.2); }
+.queue-remove:hover { color: #fff; transform: scale(1.2); }
 
-.roster-remove:focus-visible {
-  outline: 2px solid var(--ink);
+.queue-remove:focus-visible {
+  outline: 2px solid #fff;
   outline-offset: 2px;
   border-radius: 3px;
 }
 
-.card[data-state="held"] .roster-remove,
-.card[data-state="overdue"] .roster-remove { color: rgba(255, 255, 255, 0.75); }
+/* The one line meant to change the holder's behaviour rather than just
+   report status, so it is solid rather than translucent like everything
+   else on the card — the loudest thing here, on purpose. */
+.queue-alert {
+  margin: 0 0 12px;
+  padding: 10px 13px;
+  border-radius: var(--r-sm);
+  background: #fff;
+  color: var(--red-ink);
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
 
-.card[data-state="held"] .roster-remove:hover,
-.card[data-state="overdue"] .roster-remove:hover { color: #fff; }
+.queue-wait-note { margin: 0 0 10px; font-size: 13px; }
 
-.card[data-state="held"] .roster-remove:focus-visible,
-.card[data-state="overdue"] .roster-remove:focus-visible { outline-color: #fff; }
-
-.roster .more { margin-top: 10px; }
-.roster .more form { display: flex; flex-direction: column; gap: 10px; }
+.queue [data-el="queue-who-field"] { margin-bottom: 10px; }
 
 /* ---------- owner controls ---------- */
 
@@ -1858,6 +1873,16 @@ input:focus-visible {
   border-color: var(--red-950);
   background: var(--red-950);
   box-shadow: 0 0 0 3px var(--red-wash);
+}
+
+/* Arrivals and departures from a queue read the same way claims and releases
+   do — filled for "showed up", empty for "stepped away" — just one size
+   smaller a step down the same vocabulary, since queueing is not yet holding. */
+.log li[data-action="joined-queue"]::before {
+  border-color: var(--red-600);
+  background: var(--red-600);
+  width: 5px;
+  height: 5px;
 }
 
 .log-empty { color: var(--ink-faint); padding-left: 14px !important; }

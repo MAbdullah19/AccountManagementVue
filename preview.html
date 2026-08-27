@@ -83,19 +83,20 @@ const addTpl = doc.getElementById('add-template');
 const board = document.getElementById('board');
 
 const ACCOUNTS = [
-  { label: 'users@vuepulse.com', desc: 'Main shared login', state: 'free',
-    users: [['Muhammad Abdullah', 'Finance'], ['Bilal R.', ''], ['Fatima S.', 'Support lead']] },
+  { label: 'users@vuepulse.com', desc: 'Main shared login', state: 'free' },
   { label: 'billing@vuepulse.com', desc: 'Stripe dashboard', state: 'held',
     holder: 'Muhammad Abdullah', meta: 'Since 2:14 PM · 32m 07s elapsed · est. free by 3:00 PM',
     elapsed: 68, note: 'running the monthly export',
-    users: [['Muhammad Abdullah', 'Finance'], ['Omar T.', '']] },
+    queue: ['Omar T.'] },
   { label: 'ops@vuepulse.com', desc: '', state: 'overdue', holder: 'Bilal R.',
     meta: 'Since 9:02 AM · held 4h 51m, still in use?', word: 'Overdue', release: true,
-    elapsed: 100, users: [['Bilal R.', 'Primary']] },
-  { label: 'analytics@vuepulse.com', desc: 'GA4 + Looker', state: 'free', users: [] },
+    elapsed: 100,
+    queue: ['Hina M.', 'Zara K.'] },
+  { label: 'analytics@vuepulse.com', desc: 'GA4 + Looker', state: 'free' },
   { label: 'support@vuepulse.com', desc: 'Zendesk agent seat', state: 'held',
     holder: 'Fatima S.', meta: 'Since 11:40 AM · 6m 12s elapsed · est. free by 12:10 PM',
-    elapsed: 21, users: [['Fatima S.', ''], ['Hina M.', 'Weekends']] },
+    elapsed: 21,
+    waitNote: 'Protected for 2h 24m more' },
 ];
 
 for (const a of ACCOUNTS) {
@@ -121,37 +122,30 @@ for (const a of ACCOUNTS) {
     els['release-btn'].hidden = !a.release;
     els.timebar.hidden = typeof a.elapsed !== 'number';
     els['timebar-fill'].style.width = `${a.elapsed || 0}%`;
+
+    const queue = a.queue || [];
+    els['queue-badge'].hidden = !queue.length;
+    els['queue-badge'].textContent = queue.length ? `${queue.length} waiting` : '';
+    els['queue-alert'].hidden = !queue.length;
+    els['queue-alert'].textContent = queue.length
+      ? `${queue.length} ${queue.length === 1 ? 'person is' : 'people are'} waiting — please wrap up when you can.`
+      : '';
+    els['queue-count'].textContent = queue.length ? ` (${queue.length})` : '';
+    els['queue-wait-note'].hidden = !a.waitNote;
+    els['queue-wait-note'].textContent = a.waitNote || '';
+    for (const name of queue) {
+      const li = document.createElement('li');
+      li.textContent = name;
+      els['queue-list'].append(li);
+    }
+    if (!queue.length) {
+      const li = document.createElement('li');
+      li.className = 'queue-empty';
+      li.textContent = 'Nobody waiting yet.';
+      els['queue-list'].append(li);
+    }
   } else {
     els.name.value = 'Muhammad Abdullah';
-  }
-
-  const list = els['roster-list'];
-  els.roster.hidden = false;
-  els['roster-more'].hidden = false;
-  for (const [name, note] of (a.users || [])) {
-    const li = document.createElement('li');
-    const n = document.createElement('span');
-    n.className = 'roster-name';
-    n.textContent = name;
-    li.append(n);
-    if (note) {
-      const s = document.createElement('span');
-      s.className = 'roster-note';
-      s.textContent = note;
-      li.append(s);
-    }
-    const x = document.createElement('button');
-    x.type = 'button';
-    x.className = 'roster-remove';
-    x.textContent = '×';
-    li.append(x);
-    list.append(li);
-  }
-  if (!(a.users || []).length) {
-    const li = document.createElement('li');
-    li.className = 'roster-empty';
-    li.textContent = 'Nobody listed yet.';
-    list.append(li);
   }
 
   els.admin.hidden = false;

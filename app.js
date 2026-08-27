@@ -7,7 +7,8 @@ import { ref, onValue, get } from 'https://www.gstatic.com/firebasejs/12.16.0/fi
 import { initClock, serverNow, formatElapsed, formatDuration, formatTimeOfDay }
   from './clock.js';
 import { claim, release, forceRelease } from './lock.js';
-import { createAccount, renameAccount, deleteAccount, addUser, removeUser } from './accounts.js';
+import { joinQueue, leaveQueue, canJoinQueue, msUntilQueueable } from './queue.js';
+import { createAccount, renameAccount, deleteAccount } from './accounts.js';
 import { loadIdentity } from './identity.js';
 import { connect, showBanner, watchConnection, renderWho } from './boot.js';
 import { initTheme } from './theme.js';
@@ -37,6 +38,7 @@ const state = {
   accounts: [],
   accountsLoaded: false,
   locks: {},
+  queues: {},
   identity: { email: '', name: '', isAdmin: false, source: 'none' },
   connected: false,
   everConnected: false,
@@ -90,8 +92,9 @@ const ADMIN_MESSAGES = {
   error: 'That write was rejected. Try again.',
 };
 
-const ROSTER_MESSAGES = {
-  invalid: 'Check the name (1 to 40 characters) and note (up to 60).',
+const QUEUE_MESSAGES = {
+  'already-queued': 'You are already in the queue for this one.',
+  invalid: 'Check the name (1 to 40 characters).',
   error: 'That write was rejected. Try again.',
 };
 
@@ -101,7 +104,7 @@ function explain(result, table = MESSAGES) {
 }
 
 const explainAdmin = (result) => explain(result, ADMIN_MESSAGES);
-const explainRoster = (result) => explain(result, ROSTER_MESSAGES);
+const explainQueue = (result) => explain(result, QUEUE_MESSAGES);
 
 /* ------------------------------------------------------------ lock state */
 
@@ -115,20 +118,39 @@ function isOverdue(lock) {
   return serverNow() > lock.claimedAt + lock.expectedMinutes * 60000;
 }
 
+// Matched on the email where both sides have one — same rule lock.js uses to
+// decide whether a release would be accepted. Shared by the release button
+// and the queue view, so "can I release" and "am I the one people are
+// waiting on" never drift apart.
+function isMineLock(lock) {
+  if (!isHeld(lock)) return false;
+  return state.identity.email && lock.email
+    ? lock.email === state.identity.email
+    : Boolean(savedName()) && lock.holder === savedName();
+}
+
+// Same identity rule, for a queue entry rather than a lock.
+function queueEntryIsMine(entry) {
+  return state.identity.email && entry.email
+    ? entry.email === state.identity.email
+    : Boolean(savedName()) && entry.name === savedName();
+}
+
 /* ----------------------------------------------------------- reading data */
 
-// Push keys sort chronologically as strings, so sorting by id keeps the roster
-// in the order people were added to it.
-function readUsers(node) {
+// Push keys sort chronologically as strings, so the queue reads out in join
+// order (FIFO) with no separate ordering field.
+function readQueue(node) {
   if (!node || typeof node !== 'object') return [];
 
   return Object.entries(node)
     .map(([id, val]) => ({
       id,
       name: typeof val?.name === 'string' ? val.name.trim() : '',
-      note: typeof val?.note === 'string' ? val.note.trim() : '',
+      email: typeof val?.email === 'string' ? val.email.trim() : '',
+      joinedAt: typeof val?.joinedAt === 'number' ? val.joinedAt : 0,
     }))
-    .filter((user) => user.name)
+    .filter((entry) => entry.name)
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 
@@ -143,7 +165,6 @@ function readAccounts(snap) {
       label: label || '(unnamed account)',
       description: typeof val.description === 'string' ? val.description.trim() : '',
       createdAt: typeof val.createdAt === 'number' ? val.createdAt : 0,
-      users: readUsers(val.users),
     });
   });
 
@@ -245,7 +266,15 @@ function wireCard(card) {
     );
     syncClaimButton(card);
 
-    if (result.ok) return; // the listener redraws the card
+    if (result.ok) {
+      // Best-effort: a claimer who was waiting in the queue for this account
+      // no longer needs to be. Silent, because the claim itself is already
+      // the log line that matters — a "left the queue" line right next to it
+      // would just be noise.
+      const mine = (card.queue || []).find((entry) => queueEntryIsMine(entry));
+      if (mine) leaveQueue(db, account, mine.id, { name: mine.name, email: mine.email, silent: true });
+      return; // the listener redraws the card
+    }
 
     // By now the listener has usually redrawn the card. If someone else won the
     // race the free view is hidden, so a message written there would never be
@@ -259,6 +288,40 @@ function wireCard(card) {
       release(db, card.account, { holder: savedName(), email: state.identity.email })
     );
     if (!result.ok) setMsg(els['held-msg'], explain(result), 'error');
+  });
+
+  els['queue-join-btn'].addEventListener('click', async () => {
+    setMsg(els['queue-msg'], '');
+
+    // Access already knows who this is. The name field only appears for an
+    // unrecognised visitor — in practice, local development — same rule as
+    // force release's who-field.
+    const typed = els['queue-who'].value.trim();
+    const name = savedName() || typed;
+
+    if (!name) {
+      setMsg(els['queue-msg'], 'Type your name first.', 'error');
+      els['queue-who'].focus();
+      return;
+    }
+
+    if (typed && !savedName()) saveName(typed);
+
+    const result = await whileBusy(els['queue-join-btn'], 'Joining…', () =>
+      joinQueue(db, card.account, { name, email: state.identity.email })
+    );
+    if (!result.ok) setMsg(els['queue-msg'], explainQueue(result), 'error');
+  });
+
+  els['queue-leave-btn'].addEventListener('click', async () => {
+    setMsg(els['queue-msg'], '');
+    const mine = (card.queue || []).find((entry) => queueEntryIsMine(entry));
+    if (!mine) return;
+
+    const result = await whileBusy(els['queue-leave-btn'], 'Leaving…', () =>
+      leaveQueue(db, card.account, mine.id, { name: mine.name, email: mine.email })
+    );
+    if (!result.ok) setMsg(els['queue-msg'], explainQueue(result), 'error');
   });
 
   // The reason field is the friction; the button unlocks once it has content.
@@ -304,95 +367,7 @@ function wireCard(card) {
     setMsg(els['held-msg'], explain(result), 'error');
   });
 
-  wireCardRoster(card);
   wireCardAdmin(card);
-}
-
-/* ----------------------------------------------------------------- roster */
-
-function wireCardRoster(card) {
-  const { els } = card;
-
-  els['roster-form'].addEventListener('submit', async (event) => {
-    event.preventDefault();
-    setMsg(els['roster-msg'], '');
-
-    const name = els['roster-name'].value.trim();
-    const note = els['roster-note'].value.trim();
-
-    if (!name) {
-      setMsg(els['roster-msg'], 'Type a name first.', 'error');
-      els['roster-name'].focus();
-      return;
-    }
-
-    const result = await whileBusy(els['roster-add'], 'Adding…', () =>
-      addUser(db, card.id, { name, note })
-    );
-
-    if (result.ok) {
-      els['roster-name'].value = '';
-      els['roster-note'].value = '';
-      els['roster-name'].focus();
-      return;
-    }
-    setMsg(els['roster-msg'], explainRoster(result), 'error');
-  });
-}
-
-function renderRoster(card, account) {
-  const { els } = card;
-  const admin = state.identity.isAdmin;
-  const users = account.users;
-
-  // For everyone else an empty roster is noise, so the whole block goes away.
-  els.roster.hidden = !users.length && !admin;
-  els['roster-more'].hidden = !admin;
-
-  const list = els['roster-list'];
-  list.textContent = '';
-
-  if (!users.length) {
-    const empty = document.createElement('li');
-    empty.className = 'roster-empty';
-    empty.textContent = 'Nobody listed yet.';
-    list.append(empty);
-    return;
-  }
-
-  // Names and notes are free text typed by the owner, so every node is built
-  // with textContent. Nothing here touches innerHTML.
-  for (const user of users) {
-    const li = document.createElement('li');
-
-    const name = document.createElement('span');
-    name.className = 'roster-name';
-    name.textContent = user.name;
-    li.append(name);
-
-    if (user.note) {
-      const note = document.createElement('span');
-      note.className = 'roster-note';
-      note.textContent = user.note;
-      li.append(note);
-    }
-
-    if (admin) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'roster-remove';
-      button.textContent = '×';
-      button.setAttribute('aria-label', `Remove ${user.name}`);
-      button.addEventListener('click', async () => {
-        setMsg(els['roster-msg'], '');
-        const result = await removeUser(db, card.id, user.id);
-        if (!result.ok) setMsg(els['roster-msg'], explainRoster(result), 'error');
-      });
-      li.append(button);
-    }
-
-    list.append(li);
-  }
 }
 
 /* ------------------------------------------------------------ owner controls */
@@ -483,9 +458,10 @@ function wireCardAdmin(card) {
 
 /* -------------------------------------------------------------- card render */
 
-function updateCard(card, account, lock) {
+function updateCard(card, account, lock, queueNode) {
   card.account = account;
   card.lock = lock || null;
+  card.queue = readQueue(queueNode);
 
   const { els } = card;
 
@@ -515,10 +491,15 @@ function updateCard(card, account, lock) {
   els['view-free'].hidden = held;
   els['view-held'].hidden = !held;
 
-  if (held) renderHeld(card);
-  else renderFree(card);
-
-  renderRoster(card, account);
+  if (held) {
+    renderHeld(card);
+  } else {
+    renderFree(card);
+    // The queue only ever renders inside the held view; a card that just
+    // went free would otherwise keep showing a stale "N waiting" badge from
+    // before it was released.
+    els['queue-badge'].hidden = true;
+  }
 
   els.admin.hidden = !state.identity.isAdmin;
   if (!state.identity.isAdmin) {
@@ -542,12 +523,7 @@ function renderHeld(card) {
   els['held-note'].hidden = !card.lock.note;
 
   // Release is for the person who holds it. Everyone else gets Force release.
-  // Matched on the email where both sides have one — same rule as lock.js, so
-  // the button appears exactly when the release would be accepted.
-  const mine = state.identity.email && card.lock.email
-    ? card.lock.email === state.identity.email
-    : Boolean(savedName()) && card.lock.holder === savedName();
-  els['release-btn'].hidden = !mine;
+  els['release-btn'].hidden = !isMineLock(card.lock);
 
   // Access already knows who this is, so there is nothing to ask and nothing to
   // get wrong. The name is only asked of an unrecognised visitor — in practice
@@ -558,6 +534,103 @@ function renderHeld(card) {
   els['force-as'].hidden = !verified;
 
   renderHeldMeta(card);
+  renderQueue(card);
+}
+
+// Who is waiting, and — depending on who is looking — either the button to
+// join or leave that line, or the nudge to the holder that they should not
+// have it much longer. Signal only: nothing here is enforced, and claiming
+// stays first-come-first-served the moment the lock actually frees up.
+function renderQueue(card) {
+  const { els } = card;
+  const lock = card.lock;
+  const queue = card.queue || [];
+
+  els['queue-badge'].hidden = !queue.length;
+  els['queue-badge'].textContent = queue.length ? `${queue.length} waiting` : '';
+  els['queue-count'].textContent = queue.length ? ` (${queue.length})` : '';
+
+  const list = els['queue-list'];
+  list.textContent = '';
+
+  if (!queue.length) {
+    const empty = document.createElement('li');
+    empty.className = 'queue-empty';
+    empty.textContent = 'Nobody waiting yet.';
+    list.append(empty);
+  } else {
+    for (const entry of queue) {
+      const li = document.createElement('li');
+
+      const name = document.createElement('span');
+      name.className = 'queue-name';
+      name.textContent = entry.name;
+      li.append(name);
+
+      const since = document.createElement('span');
+      since.className = 'queue-since';
+      since.textContent = `waiting ${formatDuration(serverNow() - entry.joinedAt)}`;
+      li.append(since);
+
+      // Anyone can leave their own spot; the owner can also clear somebody
+      // else's.
+      if (state.identity.isAdmin || queueEntryIsMine(entry)) {
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'queue-remove';
+        remove.textContent = '×';
+        remove.setAttribute('aria-label', `Remove ${entry.name} from the queue`);
+        remove.addEventListener('click', async () => {
+          setMsg(els['queue-msg'], '');
+          const result = await leaveQueue(db, card.account, entry.id, { name: entry.name, email: entry.email });
+          if (!result.ok) setMsg(els['queue-msg'], explainQueue(result), 'error');
+        });
+        li.append(remove);
+      }
+
+      list.append(li);
+    }
+  }
+
+  const holder = isMineLock(lock);
+
+  if (holder) {
+    // The holder never joins or leaves their own account's queue — they just
+    // get the one line that matters.
+    els['queue-who-field'].hidden = true;
+    els['queue-join-btn'].hidden = true;
+    els['queue-leave-btn'].hidden = true;
+    els['queue-wait-note'].hidden = true;
+    els['queue-alert'].hidden = !queue.length;
+    els['queue-alert'].textContent = queue.length
+      ? `${queue.length} ${queue.length === 1 ? 'person is' : 'people are'} waiting — please wrap up when you can.`
+      : '';
+    return;
+  }
+
+  els['queue-alert'].hidden = true;
+
+  const mine = queue.some((entry) => queueEntryIsMine(entry));
+  if (mine) {
+    els['queue-who-field'].hidden = true;
+    els['queue-join-btn'].hidden = true;
+    els['queue-leave-btn'].hidden = false;
+    els['queue-wait-note'].hidden = true;
+    return;
+  }
+
+  els['queue-leave-btn'].hidden = true;
+
+  if (canJoinQueue(lock)) {
+    els['queue-who-field'].hidden = Boolean(state.identity.email) || Boolean(savedName());
+    els['queue-join-btn'].hidden = false;
+    els['queue-wait-note'].hidden = true;
+  } else {
+    els['queue-who-field'].hidden = true;
+    els['queue-join-btn'].hidden = true;
+    els['queue-wait-note'].hidden = false;
+    els['queue-wait-note'].textContent = `You can join the queue in ${formatDuration(msUntilQueueable(lock))}.`;
+  }
 }
 
 // How much of the claimed time has gone, as a bar. Nothing here is information
@@ -671,7 +744,7 @@ function renderBoard() {
       playEntrance(card.root, fresh);
       fresh += 1;
     }
-    updateCard(card, account, state.locks[account.id]);
+    updateCard(card, account, state.locks[account.id], state.queues[account.id]);
   }
 
   for (const [id, card] of cards) {
@@ -837,6 +910,9 @@ function tick() {
     if (!isHeld(card.lock)) continue;
     card.root.dataset.state = isOverdue(card.lock) ? 'overdue' : 'held';
     renderHeldMeta(card);
+    // Not driven by any snapshot: the queue-eligibility countdown and each
+    // entry's "waiting Xm" both move on the clock alone.
+    renderQueue(card);
   }
 
   // Going overdue moves a card from one column of the meter to another, and no
@@ -916,6 +992,18 @@ async function start() {
     )
   );
 
+  onValue(
+    ref(db, 'queue'),
+    (snap) => {
+      state.queues = snap.val() || {};
+      renderBoard();
+    },
+    (err) => showBanner(
+      'Cannot read the board',
+      `${err.message}. Check that the Realtime Database rules have been published.`
+    )
+  );
+
   // Cheap insurance against a listener that died while the laptop was asleep.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') refresh();
@@ -924,13 +1012,15 @@ async function start() {
 
 async function refresh() {
   try {
-    const [accountsSnap, locksSnap] = await Promise.all([
+    const [accountsSnap, locksSnap, queueSnap] = await Promise.all([
       get(ref(db, 'accounts')),
       get(ref(db, 'locks')),
+      get(ref(db, 'queue')),
     ]);
     state.accounts = readAccounts(accountsSnap);
     state.accountsLoaded = true;
     state.locks = locksSnap.val() || {};
+    state.queues = queueSnap.val() || {};
     renderBoard();
   } catch (err) {
     console.warn('[board] refetch on focus failed', err);

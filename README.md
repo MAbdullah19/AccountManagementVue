@@ -37,8 +37,10 @@ when, and when they expect to be done. That is the whole product.
 - **Force release, with a reason.** Anyone can take an account back. The reason
   is required and both names go in the log. No confirm dialog, because dialogs
   train people to click through them.
-- **A roster per account.** "Which login am I supposed to use?", answered for a
-  new teammate.
+- **A queue, once you've had it a while.** The holder gets 2.5 hours nobody can
+  interrupt; after that, anyone can join the queue for that account, and the
+  holder sees a plain "N people are waiting" line. Signal only — claiming stays
+  first-come-first-served the moment it actually frees up.
 - **One line for the whole board.** `2 of 5 accounts free`, with a meter, above
   the cards — the question people walk up with, answered before they read one.
 - **An append-only activity log**, on its own page, narrowable by account and by
@@ -61,8 +63,9 @@ almost every design decision follows from that:
 - **No passwords and one role.** Reaching the page at all is handled at the edge
   by Cloudflare Access. The owner, who can add and rename accounts, is a
   hidden-buttons check, not a permission. See [Security, honestly](#security-honestly).
-- **The roster is reference, not permission.** It never restricts who can claim
-  what, and must not be made to look like it does.
+- **The queue is a signal, not a reservation.** Joining it does not stop anyone
+  else — including someone not in it — from claiming the account the moment it
+  frees up. It only tells the holder that people are waiting.
 
 ## How it works
 
@@ -110,7 +113,8 @@ app.js              the board: wiring, rendering, event handlers
 activity.js         the activity page: reads the log, writes nothing
 boot.js             Firebase init, sign-in, banner, connection pill, identity chip
 lock.js             claim / release / force-release transactions
-accounts.js         account metadata and roster writes
+queue.js            join / leave the per-account queue
+accounts.js         account metadata writes
 identity.js         Cloudflare Access identity + the owner check
 clock.js            server time offset and all time formatting
 theme.js            the light/dark toggle, shared by both pages
@@ -173,6 +177,7 @@ repaints one. Under `prefers-reduced-motion` it writes nothing at all.
 ```
 /accounts/{id}   label, description, createdAt, users/{id}: { name, note }
 /locks/{id}      status "free" | "held", holder, email, claimedAt, expectedMinutes
+/queue/{id}/{entryId}   name, email, joinedAt
 /log/{pushId}    accountId, accountLabel, name, email, action, at, reason, heldBy
 ```
 
@@ -247,8 +252,6 @@ trade was made deliberately; see `plan.md` §2.2.
 
 Listed so the decisions stay visible, not as a roadmap.
 
-- **A queue** — "join the waitlist, see your position". Only worth it if people
-  are actually colliding.
 - **A Slack or Discord webhook on release** — turns "check the board" into "the
   board tells me". About 15 lines, and the strongest candidate for the next
   addition.

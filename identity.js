@@ -10,9 +10,9 @@
 //
 // That is consistent with how the rest of this board already works — force
 // release is deliberately available to everyone — but it means the owner
-// controls are a tidy-up, not a permission. If the roster ever becomes
-// load-bearing, swap this for Firebase Google sign-in so `auth.token.email`
-// can be checked in the rules. See plan.md §2.2.
+// controls are a tidy-up, not a permission. If that ever needs to become a
+// real permission, swap this for Firebase Google sign-in so
+// `auth.token.email` can be checked in the rules. See plan.md §2.2.
 
 // EDIT ME: who may manage accounts. Compared lowercased.
 const ADMIN_EMAILS = [

@@ -8,14 +8,6 @@
         "label": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60" },
         "description": { ".validate": "newData.isString() && newData.val().length <= 120" },
         "createdAt": { ".validate": "newData.isNumber()" },
-        "users": {
-          "$userId": {
-            ".validate": "newData.hasChildren(['name'])",
-            "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 40" },
-            "note": { ".validate": "newData.isString() && newData.val().length <= 60" },
-            "$other": { ".validate": false }
-          }
-        },
         "$other": { ".validate": false }
       }
     },
@@ -42,6 +34,19 @@
         "accountId": { ".validate": "newData.isString() && newData.val().length <= 200" },
         "accountLabel": { ".validate": "newData.isString() && newData.val().length <= 60" },
         "email": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120" }
+      }
+    },
+    "queue": {
+      ".read": "auth != null",
+      "$accountId": {
+        "$entryId": {
+          ".write": "auth != null",
+          ".validate": "newData.hasChildren(['name', 'joinedAt'])",
+          "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 40" },
+          "email": { ".validate": "newData.isString() && newData.val().length <= 120" },
+          "joinedAt": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        }
       }
     }
   }
