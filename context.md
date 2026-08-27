@@ -108,13 +108,25 @@ claiming is first-come-first-served regardless of queue position. Lives in
 `queue.js`, at `/queue/{accountId}/{entryId}` in the database, alongside
 `/accounts`, `/locks` and `/log`.
 
+## Time held, by day (added after the queue)
+
+Admin-only section on the activity page: who held which account, and for how
+long, totalled per person per account per day. Completed time comes from
+pairing "claimed" with the next "released"/"force-released" for the same
+account in the loaded log window; a still-open hold is read straight from
+`/locks` instead of inferred from the log, so "ongoing" is always accurate
+even if the matching claim has scrolled out of the log's 200-entry window. A
+force-released session is credited to the original holder (from the
+`claimed` entry), not to whoever force-released it. Purely a computed view —
+no new database schema, so no rules to publish for this one. Recomputes on
+every log/lock change, plus a coarse 10-minute timer so an ongoing hold's
+elapsed time doesn't go stale between events (deliberately not a per-second
+tick — this is a summary to skim, not a stopwatch).
+
 ## Open items
 
-- [ ] **`database.rules.json` is not published yet** — it has a new `"queue"`
-      block, and the `users` schema under `/accounts/{id}` has been removed
-      along with the roster. Paste the updated file into Realtime Database →
-      Rules — until then, joining or leaving a queue reads as
-      `permission_denied at /queue`.
+- [x] ~~`database.rules.json` needed publishing~~ — done 2026-08-27: the
+      `"queue"` block and the removed `users` schema are both live.
 - [ ] **The v2 rules are not published yet, and nothing works until they are.**
       Firebase denies any path the rules do not name, so the board currently
       reports `permission_denied at /locks`. Paste `database.rules.json` into

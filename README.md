@@ -45,6 +45,10 @@ when, and when they expect to be done. That is the whole product.
   the cards — the question people walk up with, answered before they read one.
 - **An append-only activity log**, on its own page, narrowable by account and by
   date — today, the last 7 or 30 days, or any range you type.
+- **Time held, by day** (admin only, same page). Who held which account and for
+  how long, totalled per person per account per day — completed time paired up
+  from the log, a still-open hold read straight from `/locks` so "ongoing" is
+  never a guess. The same account/date filters above narrow it too.
 - **The tab title is the board** — `○ 3 of 5 free` — readable while pinned.
 - **Light and dark.** Follows the operating system by default; the toggle in the
   corner overrides it and is remembered.
@@ -255,8 +259,6 @@ Listed so the decisions stay visible, not as a roadmap.
 - **A Slack or Discord webhook on release** — turns "check the board" into "the
   board tells me". About 15 lines, and the strongest candidate for the next
   addition.
-- **Per-account history.** The log is global; filtering it is a display change,
-  not a model change. Every entry already carries its `accountId`.
 - **An enforced owner.** See [Security, honestly](#security-honestly).
 
 ## Docs

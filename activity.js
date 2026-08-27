@@ -4,7 +4,7 @@
 // nor accounts.js.
 import { ref, onValue, get, query, limitToLast }
   from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js';
-import { initClock, formatLogTime, serverNow } from './clock.js';
+import { initClock, formatLogTime, formatDuration, serverNow } from './clock.js';
 import { loadIdentity } from './identity.js';
 import { connect, showBanner, watchConnection, renderWho } from './boot.js';
 import { initTheme } from './theme.js';
@@ -91,6 +91,16 @@ let entries = [];
 // ordering the dropdown — the filter itself matches on the accountId stored in
 // each log entry, so deleting an account does not rewrite its history.
 const roster = new Map();
+
+// Live from /locks — the authoritative source for "still going" in the held
+// summary below, rather than an inference from a log window that might not
+// reach back to the matching claim.
+let locks = {};
+
+// Completed and ongoing hold sessions, recomputed whenever entries or locks
+// change. Kept separate from the filtered view of them so the filters can be
+// re-applied without re-pairing the log.
+let allSessions = [];
 
 const anyFilter = () => Boolean(filters.accountId || filters.from || filters.to);
 
@@ -203,6 +213,215 @@ function syncPresets() {
   }
 }
 
+/* ------------------------------------------------------- time held, by day */
+
+// Pairs each "claimed" with the next "released" or "force-released" for the
+// same account, walking the window in chronological order (the log itself is
+// newest-first). A claim with no closing entry in the window is dropped
+// rather than guessed at — an account currently held shows up instead as an
+// ongoing session below, read straight from /locks, which is authoritative
+// and does not depend on the claim still being inside the window.
+function pairSessions(list) {
+  const chronological = [...list].sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
+  const open = new Map(); // accountId -> the "claimed" entry that opened it
+  const sessions = [];
+
+  for (const entry of chronological) {
+    if (typeof entry.accountId !== 'string' || !entry.accountId) continue;
+
+    if (entry.action === 'claimed') {
+      open.set(entry.accountId, entry);
+      continue;
+    }
+
+    if (entry.action !== 'released' && entry.action !== 'force-released') continue;
+
+    const start = open.get(entry.accountId);
+    if (!start) continue; // the claim that opened this fell outside the window
+    open.delete(entry.accountId);
+    if (typeof start.at !== 'number' || typeof entry.at !== 'number') continue;
+
+    // A force-release's own "name" is whoever force-released it, not the
+    // holder — the session belongs to the person named in the claim.
+    sessions.push({
+      day: isoDay(start.at),
+      accountId: entry.accountId,
+      accountLabel: entry.accountLabel || start.accountLabel || 'a deleted account',
+      holderKey: (start.email || start.name || '').toLowerCase(),
+      holderName: start.name || 'Someone',
+      durationMs: Math.max(0, entry.at - start.at),
+      ongoing: false,
+    });
+  }
+
+  return sessions;
+}
+
+// Every currently-held account, straight from /locks rather than inferred
+// from the log — so "ongoing" is never a guess about a claim the window
+// might not reach back to.
+function ongoingSessions() {
+  const sessions = [];
+
+  for (const [accountId, lock] of Object.entries(locks)) {
+    if (!lock || lock.status !== 'held' || typeof lock.claimedAt !== 'number') continue;
+
+    sessions.push({
+      day: isoDay(lock.claimedAt),
+      accountId,
+      accountLabel: roster.get(accountId) || 'a deleted account',
+      holderKey: (lock.email || lock.holder || '').toLowerCase(),
+      holderName: lock.holder || 'Someone',
+      durationMs: Math.max(0, serverNow() - lock.claimedAt),
+      ongoing: true,
+    });
+  }
+
+  return sessions;
+}
+
+function recomputeSessions() {
+  allSessions = [...pairSessions(entries), ...ongoingSessions()];
+}
+
+// Same two filters as the log above, applied to a session's day rather than
+// to a single timestamp.
+function sessionMatchesFilters(session, from, to) {
+  if (filters.accountId && session.accountId !== filters.accountId) return false;
+  if (from === null && to === null) return true;
+
+  const bounds = dayBounds(session.day);
+  if (!bounds) return false;
+  if (from !== null && bounds.end < from) return false;
+  if (to !== null && bounds.start > to) return false;
+  return true;
+}
+
+// One row per person per account per day, totalled — not one row per
+// session, so someone claiming and releasing the same account five times in
+// an afternoon reads as one line, not five.
+function summariseHeldTime(from, to) {
+  const days = new Map(); // day -> Map(accountId::holderKey -> row)
+
+  for (const session of allSessions) {
+    if (!sessionMatchesFilters(session, from, to)) continue;
+
+    if (!days.has(session.day)) days.set(session.day, new Map());
+    const rows = days.get(session.day);
+    const key = `${session.accountId}::${session.holderKey}`;
+
+    const row = rows.get(key) || {
+      accountId: session.accountId,
+      accountLabel: session.accountLabel,
+      holderName: session.holderName,
+      totalMs: 0,
+      sessionCount: 0,
+      ongoingCount: 0,
+    };
+
+    row.totalMs += session.durationMs;
+    row.sessionCount += 1;
+    if (session.ongoing) row.ongoingCount += 1;
+    // Free text can drift in spelling between sessions; the most recent one
+    // wins rather than the first.
+    row.holderName = session.holderName;
+
+    rows.set(key, row);
+  }
+
+  return [...days.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0])) // newest day first
+    .map(([day, rows]) => ({
+      day,
+      rows: [...rows.values()].sort((a, b) =>
+        a.accountLabel.localeCompare(b.accountLabel, undefined, { sensitivity: 'base' })
+        || a.holderName.localeCompare(b.holderName, undefined, { sensitivity: 'base' })),
+    }));
+}
+
+function dayHeading(day) {
+  if (day === dayAgo(0)) return 'Today';
+  if (day === dayAgo(1)) return 'Yesterday';
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+function heldRow(row) {
+  const li = document.createElement('li');
+  li.className = 'held-row';
+
+  const account = document.createElement('span');
+  account.className = 'held-account';
+  account.textContent = row.accountLabel;
+  li.append(account);
+
+  const holder = document.createElement('span');
+  holder.className = 'held-holder';
+  holder.textContent = row.holderName;
+  li.append(holder);
+
+  const duration = document.createElement('span');
+  duration.className = 'held-duration';
+  duration.textContent = formatDuration(row.totalMs);
+  li.append(duration);
+
+  if (row.sessionCount > 1) {
+    const count = document.createElement('span');
+    count.className = 'held-count';
+    count.textContent = `across ${row.sessionCount} sessions`;
+    li.append(count);
+  }
+
+  if (row.ongoingCount > 0) {
+    const badge = document.createElement('span');
+    badge.className = 'held-ongoing';
+    badge.textContent = 'ongoing';
+    li.append(badge);
+  }
+
+  return li;
+}
+
+function renderHeldSummary(groups, total) {
+  const container = el('held-summary-list');
+  container.textContent = '';
+
+  if (!groups.length) {
+    const empty = document.createElement('p');
+    empty.className = 'held-empty';
+    empty.textContent = anyFilter()
+      ? 'No completed or ongoing holds match these filters.'
+      : 'No completed or ongoing holds yet.';
+    container.append(empty);
+  } else {
+    for (const group of groups) {
+      const day = document.createElement('div');
+      day.className = 'held-day';
+
+      const heading = document.createElement('h3');
+      heading.className = 'held-day-head';
+      heading.textContent = dayHeading(group.day);
+      day.append(heading);
+
+      const list = document.createElement('ul');
+      list.className = 'held-rows';
+      for (const row of group.rows) list.append(heldRow(row));
+      day.append(list);
+
+      container.append(day);
+    }
+  }
+
+  // Only the completed side of this is bounded by the log window — an
+  // ongoing hold always comes straight from /locks regardless of how far
+  // back the log reaches.
+  const foot = el('held-summary-foot');
+  foot.textContent = total >= LOG_LIMIT
+    ? `Completed sessions are limited to the log's most recent ${LOG_LIMIT} entries. Ongoing holds are always current.`
+    : '';
+  foot.hidden = !foot.textContent;
+}
+
 /* ----------------------------------------------------------------- render */
 
 function render(shown, total, note) {
@@ -263,10 +482,12 @@ function apply() {
   syncPresets();
   renderCount(shown.length, entries.length, note);
   render(shown, entries.length, note);
+  renderHeldSummary(backwards ? [] : summariseHeldTime(from, to), entries.length);
 }
 
 function setEntries(next) {
   entries = next;
+  recomputeSessions();
   syncAccountOptions();
   apply();
 }
@@ -344,6 +565,7 @@ function showLocked() {
   // they narrow.
   el('filters').hidden = true;
   el('filter-count').hidden = true;
+  el('held-summary').hidden = true;
   // Nothing is connecting, so a pill that says "connecting…" forever would be
   // a lie.
   el('conn').hidden = true;
@@ -373,6 +595,7 @@ async function start() {
 
   wireFilters();
   el('filters').hidden = false;
+  el('held-summary').hidden = false;
 
   // The dropdown names the accounts the board has now; the log supplies the
   // ones it used to have. Neither listener owns the list, so either can arrive
@@ -384,8 +607,24 @@ async function start() {
       roster.set(child.key, typeof label === 'string' && label ? label : 'Untitled account');
     });
     syncAccountOptions();
+    recomputeSessions();
     apply();
   });
+
+  // The held summary's "ongoing" rows read this directly, rather than
+  // inferring a still-open claim from the log — see pairSessions above.
+  onValue(
+    ref(db, 'locks'),
+    (snap) => {
+      locks = snap.val() || {};
+      recomputeSessions();
+      apply();
+    },
+    (err) => showBanner(
+      'Cannot read the board',
+      `${err.message}. Check that the Realtime Database rules have been published.`
+    )
+  );
 
   onValue(
     query(ref(db, 'log'), limitToLast(LOG_LIMIT)),
@@ -396,6 +635,15 @@ async function start() {
     )
   );
 
+  // Nothing else re-renders an ongoing hold's elapsed time on its own — nobody
+  // claims or releases anything just so this number moves. Ten minutes is
+  // rough on purpose: this is a summary to skim, not a stopwatch, and it is
+  // not worth a per-second tick like the board's own held-card timer.
+  setInterval(() => {
+    recomputeSessions();
+    apply();
+  }, 10 * 60 * 1000);
+
   // Cheap insurance against a listener that died while the laptop was asleep.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') refresh();
@@ -404,7 +652,11 @@ async function start() {
 
 async function refresh() {
   try {
-    const snap = await get(query(ref(db, 'log'), limitToLast(LOG_LIMIT)));
+    const [snap, locksSnap] = await Promise.all([
+      get(query(ref(db, 'log'), limitToLast(LOG_LIMIT))),
+      get(ref(db, 'locks')),
+    ]);
+    locks = locksSnap.val() || {};
     setEntries(readLog(snap));
   } catch (err) {
     console.warn('[board] refetch on focus failed', err);

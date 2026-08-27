@@ -1822,6 +1822,94 @@ input:focus-visible {
 
 .filter-count[data-tone="error"] { color: var(--red-ink); }
 
+/* ---------- time held, by day ---------- */
+
+.held-summary {
+  margin-bottom: 14px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--paper-2);
+}
+
+.held-summary-head {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.held-day + .held-day { margin-top: 16px; }
+
+.held-day-head {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.held-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  background: var(--paper);
+}
+
+.held-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.held-row:nth-child(even) { background: var(--paper-2); }
+.held-row:last-child { border-bottom: 0; }
+
+.held-account { font-weight: 700; }
+.held-holder { color: var(--ink-soft); }
+
+/* Pushes duration, the session count and the ongoing badge into a cluster on
+   the right — account and holder stay left, everything that answers "how
+   much" reads as one group. */
+.held-duration {
+  margin-left: auto;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--red-ink);
+}
+
+.held-count { font-size: 12px; color: var(--ink-faint); }
+
+/* Same "this is currently true" treatment as a lit filter chip. */
+.held-ongoing {
+  padding: 1px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--grad-red);
+  box-shadow: var(--shadow-red);
+}
+
+.held-empty { margin: 0; padding: 2px; color: var(--ink-faint); font-size: 14px; }
+
+.held-summary-foot {
+  margin: 12px 2px 0;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
 /* The time is a fixed-width first column rather than a "12:04 — " prefix, so
    the lines stack into something scannable instead of a wall of prose. */
 .log {

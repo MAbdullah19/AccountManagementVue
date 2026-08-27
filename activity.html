@@ -126,6 +126,17 @@
        is filtering, because "showing 200 of 200" is noise. -->
   <p class="filter-count" id="filter-count" hidden role="status"></p>
 
+  <!-- Who held what, totalled per person per account per day — the same
+       filters above narrow this too. Completed time comes from pairing
+       claimed/released log lines; a still-open hold is read straight from
+       /locks, so "ongoing" is never a guess. Same admin gate as the log
+       below, and it never appears on the locked view. -->
+  <section class="held-summary" id="held-summary" aria-label="Time held, by day" hidden>
+    <h2 class="held-summary-head">Time held, by day</h2>
+    <div id="held-summary-list"></div>
+    <p class="held-summary-foot" id="held-summary-foot" hidden></p>
+  </section>
+
   <ul class="log" id="log-list" aria-live="polite">
     <li class="log-empty">Loading…</li>
   </ul>
