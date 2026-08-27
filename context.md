@@ -4,7 +4,7 @@ Working state for the Account Board. `plan.md` is what we intend to do;
 this file is what is currently true. Update it when a fact changes, not when
 work merely progresses — progress lives in `plan.md`'s checkboxes.
 
-Last updated: 2026-08-01.
+Last updated: 2026-08-27.
 
 ---
 
@@ -15,7 +15,7 @@ Last updated: 2026-08-01.
 | Repo | `MAbdullah19/AccountManagementVue` (private) |
 | Live site | <https://accountmanagementvue.pages.dev> |
 | Hosting | Cloudflare Pages, no build step, output directory `/` |
-| Access team domain | `abdullahs-studio.cloudflareaccess.com` (account-wide, not per-app) |
+| Access team domain | `vuepulse.cloudflareaccess.com` (account-wide, not per-app) |
 | Firebase project | `vue-account-board`, RTDB in `asia-southeast1` |
 | Owner / admin email | `abdullahbinsalim.08@gmail.com` — the address Access logs in with, and the one in `ADMIN_EMAILS` |
 | Account being tracked | `users@vuepulse.com` |
@@ -70,8 +70,8 @@ These come from v1 and have not been revisited:
 - No auto-release, no heartbeat. The queue (see below) is a signal, same rule.
 - Nobody logs into the board itself. People type a display name, remembered in
   `localStorage`. Access at the edge is the only real gate.
-- Force release stays available to everyone, with a required reason, and never
-  behind a confirm dialog.
+- Force release requires a reason and never sits behind a confirm dialog. It
+  used to be available to everyone; now it's admin-only — see below.
 - Nothing outside `clock.js` calls `Date.now()`.
 - Every lock change goes through `runTransaction`, and those callbacks stay pure.
 
@@ -122,6 +122,25 @@ no new database schema, so no rules to publish for this one. Recomputes on
 every log/lock change, plus a coarse 10-minute timer so an ongoing hold's
 elapsed time doesn't go stale between events (deliberately not a per-second
 tick — this is a summary to skim, not a stopwatch).
+
+## Force release, restricted to admins (2026-08-27)
+
+Force release used to be open to everyone, matching the "nothing is enforced"
+philosophy. At the requester's instruction it is now gated to admins in the
+UI: `app.js`'s `renderHeld()` hides `force-form` entirely unless
+`state.identity.isAdmin`, and the `not-holder` message shown after a failed
+release no longer points a non-admin at a button they can't see. This is
+still a UI-level gate, not a rules change — `database.rules.json` still lets
+any signed-in (anonymous) client write to `/locks`, same as every other owner
+control. Nothing to publish for this one.
+
+## Tab title is static again
+
+The tab title used to carry live status (`○ 3 of 5 free · VuePulse Account
+Board`), updated from `updateTitle()` on every board render. At the
+requester's instruction it is now just `VuePulse Account Board`, matching
+`index.html`'s `<title>` — `updateTitle()` and its call site were removed
+since a static title needs no JS to set it.
 
 ## Open items
 

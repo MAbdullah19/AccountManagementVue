@@ -60,7 +60,11 @@ one.
 ## Deploying
 
 Live at **<https://accountmanagementvue.pages.dev>**, behind Cloudflare Access on
-the team domain `abdullahs-studio.cloudflareaccess.com`. Deployed 2026-08-01.
+the team domain `vuepulse.cloudflareaccess.com`. Deployed 2026-08-01, team domain
+renamed from `abdullahs-studio.cloudflareaccess.com` on 2026-08-27 (Cloudflare
+account transferred from a personal Gmail to `abdullah@vuepulse.com` at the same
+time — the Access allowlist in `identity.js`'s `ADMIN_EMAILS` is unrelated to
+this and was not changed).
 
 The team domain is **account-wide, not per-application** — there is one Zero Trust
 organisation per Cloudflare account, and every Access app in it shares that login

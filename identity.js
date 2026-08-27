@@ -8,21 +8,22 @@
 // anonymous, so the database rules cannot tell the owner from anyone else, and
 // anyone who is already past Access can write to /accounts with devtools.
 //
-// That is consistent with how the rest of this board already works — force
-// release is deliberately available to everyone — but it means the owner
-// controls are a tidy-up, not a permission. If that ever needs to become a
-// real permission, swap this for Firebase Google sign-in so
+// That is consistent with how the rest of this board already works — the
+// owner controls, including force release, are a tidy-up, not a permission.
+// A teammate with devtools can still write to /locks directly. If that ever
+// needs to become a real permission, swap this for Firebase Google sign-in so
 // `auth.token.email` can be checked in the rules. See plan.md §2.2.
 
 // EDIT ME: who may manage accounts. Compared lowercased.
 const ADMIN_EMAILS = [
   'abdullahbinsalim.08@gmail.com',
   'hamza@vuepulse.com',
-  'numaira@vuepulse.com'
+  'numaira@vuepulse.com',
+  'abdullah@vuepulse.com'
 ];
 
 // EDIT ME: the Zero Trust team domain, without the scheme.
-const TEAM_DOMAIN = 'abdullahs-studio.cloudflareaccess.com';
+const TEAM_DOMAIN = 'vuepulse.cloudflareaccess.com';
 
 // Three places to ask, in descending order of how well they actually work.
 //

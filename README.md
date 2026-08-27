@@ -34,7 +34,7 @@ when, and when they expect to be done. That is the whole product.
   server timestamp.
 - **Overdue, visibly.** Past its estimate a card darkens toward black and the
   word changes to "Overdue". Nothing is auto-released — it just becomes obvious.
-- **Force release, with a reason.** Anyone can take an account back. The reason
+- **Force release, with a reason.** Admins can take an account back. The reason
   is required and both names go in the log. No confirm dialog, because dialogs
   train people to click through them.
 - **A queue, once you've had it a while.** The holder gets 2.5 hours nobody can
@@ -49,7 +49,7 @@ when, and when they expect to be done. That is the whole product.
   how long, totalled per person per account per day — completed time paired up
   from the log, a still-open hold read straight from `/locks` so "ongoing" is
   never a guess. The same account/date filters above narrow it too.
-- **The tab title is the board** — `○ 3 of 5 free` — readable while pinned.
+- **The tab title stays put** — `VuePulse Account Board` — easy to find pinned.
 - **Light and dark.** Follows the operating system by default; the toggle in the
   corner overrides it and is remembered.
 

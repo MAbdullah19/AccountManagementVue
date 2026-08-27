@@ -100,6 +100,11 @@ const QUEUE_MESSAGES = {
 
 function explain(result, table = MESSAGES) {
   if (result.reason === 'error' && result.error) console.error('[board] write failed', result.error);
+  // The stock message points at Force release, which only admins can even
+  // see now — don't send everyone else looking for a button that isn't there.
+  if (result.reason === 'not-holder' && table === MESSAGES && !state.identity.isAdmin) {
+    return 'The board says someone else holds it now.';
+  }
   return table[result.reason] || 'That did not work. Try again.';
 }
 
@@ -522,8 +527,10 @@ function renderHeld(card) {
   els['held-note'].textContent = card.lock.note || '';
   els['held-note'].hidden = !card.lock.note;
 
-  // Release is for the person who holds it. Everyone else gets Force release.
+  // Release is for the person who holds it. Force release is an admin-only
+  // override for everyone else's stuck accounts.
   els['release-btn'].hidden = !isMineLock(card.lock);
+  els['force-form'].hidden = !state.identity.isAdmin;
 
   // Access already knows who this is, so there is nothing to ask and nothing to
   // get wrong. The name is only asked of an unrecognised visitor — in practice
@@ -757,7 +764,6 @@ function renderBoard() {
   syncOrder(board);
   renderSummary();
   renderEmptyState();
-  updateTitle();
 }
 
 // Card-shaped ghosts for as long as there is no board to show yet. They are not
@@ -870,21 +876,6 @@ function renderEmptyState() {
     ? 'No accounts yet. Add the first one above.'
     : 'No accounts have been set up on this board yet.';
   node.hidden = false;
-}
-
-// The tab title is the board for anyone who keeps it pinned, so it carries the
-// status rather than a fixed app name.
-function updateTitle() {
-  const total = state.accounts.length;
-  if (!total) {
-    document.title = 'VuePulse Account Board';
-    return;
-  }
-
-  const free = state.accounts.filter((account) => !isHeld(state.locks[account.id])).length;
-  document.title = free
-    ? `○ ${free} of ${total} free · VuePulse Account Board`
-    : `● All ${total} in use · VuePulse Account Board`;
 }
 
 /* ------------------------------------------------------------ connection */
