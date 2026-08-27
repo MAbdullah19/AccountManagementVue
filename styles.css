@@ -396,27 +396,39 @@ html, body { overflow-x: clip; }
   white-space: nowrap;
 }
 
-/* The only navigation there is: two pages pointing at each other. */
+/* Three small pages pointing at each other. Shaped like a button rather than
+   an inline text link, so "how do I get back" has an obvious answer instead
+   of relying on someone noticing plain text in the corner. */
+.nav { display: flex; align-items: center; gap: 6px; }
+
 .nav a {
-  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 12.5px;
   font-weight: 650;
   color: var(--ink-soft);
   text-decoration: none;
   white-space: nowrap;
-  padding: 4px 0;
-  border-bottom: 1px solid transparent;
-  transition: color 140ms var(--ease), border-color 140ms var(--ease);
+  padding: 6px 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-2);
+  transition: color 140ms var(--ease), border-color 140ms var(--ease),
+              background 140ms var(--ease), transform 140ms var(--ease);
 }
 
 .nav a:hover {
   color: var(--red-ink);
-  border-bottom-color: var(--red-600);
+  border-color: var(--line-2);
+  background: var(--paper-3);
+  transform: translateY(-1px);
 }
+
+.nav a:active { transform: translateY(0); }
 
 .nav a:focus-visible {
   outline: 2px solid var(--ink);
-  outline-offset: 3px;
-  border-radius: 3px;
+  outline-offset: 2px;
 }
 
 /* The mark itself rather than a red square. logo.png is square and carries its
@@ -445,8 +457,14 @@ html, body { overflow-x: clip; }
 }
 
 /* Who Cloudflare Access says you are. Proof the gate is working, and the only
-   place the owner's extra powers are announced. */
+   place the owner's extra powers are announced.
+   Same pill chrome as .conn next to it, so the two read as one matched status
+   cluster rather than a bare string sitting next to a shaped chip. */
 .who {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-2);
   font-size: 12px;
   font-weight: 600;
   color: var(--ink-faint);
@@ -455,9 +473,10 @@ html, body { overflow-x: clip; }
   text-overflow: ellipsis;
   max-width: 34ch;
   min-width: 0; /* without this a flex item refuses to shrink below its text */
+  transition: color 200ms var(--ease), border-color 200ms var(--ease);
 }
 
-.who[data-admin="true"] { color: var(--red-ink); }
+.who[data-admin="true"] { color: var(--red-ink); border-color: var(--line-2); }
 
 /* ---------- theme toggle ---------- */
 
@@ -1986,6 +2005,15 @@ input:focus-visible {
 }
 
 .log-text { min-width: 0; }
+
+/* Fetched on demand rather than all at once, so the page stays fast
+   regardless of how long the log has grown. Centered: it is the end of the
+   list, not another filter control. */
+.log-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
 
 .log-foot {
   margin: 12px 2px 0;

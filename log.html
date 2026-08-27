@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Activity summary · VuePulse Account Board</title>
+<title>Full log · VuePulse Account Board</title>
 <meta name="color-scheme" content="light dark">
 <link rel="icon" type="image/png" href="logo.png">
 <link rel="apple-touch-icon" href="logo.png">
@@ -52,7 +52,7 @@
       </div>
       <nav class="nav">
         <a href="./index.html">← Board</a>
-        <a href="./log.html">Full log →</a>
+        <a href="./activity.html">← Summary</a>
       </nav>
     </div>
     <div class="topbar-right">
@@ -74,10 +74,11 @@
   </div>
 
   <header class="head">
-    <h1>Activity summary</h1>
-    <p class="sub" id="sub">Who held which account, and for how long,
-      totalled per person per account per day. For the line-by-line record,
-      see the <a href="./log.html">full log</a>.</p>
+    <h1>Full log</h1>
+    <p class="sub" id="sub">Every claim, release and force release, newest
+      first. The log is append-only, so nothing here can be edited or taken
+      back. For the totals, see the <a href="./activity.html">activity
+      summary</a>.</p>
   </header>
 
   <div class="banner" id="banner" hidden role="alert">
@@ -85,17 +86,17 @@
     <p id="banner-body"></p>
   </div>
 
-  <!-- Shown instead of the summary to anyone who is not the owner. A curtain,
-       not a lock — see the README. -->
+  <!-- Shown instead of the log to anyone who is not the owner. A curtain, not
+       a lock — see the README. -->
   <p class="locked" id="locked" hidden>
     This page is for the board owner. Everything you need is on
     <a href="./index.html">the board</a>.
   </p>
 
-  <!-- Narrowing the summary by account and by date. Part of the owner's page,
-       so it is hidden until activity.js has been told who is reading — same
-       gate as the summary itself, and it never appears on the locked view. -->
-  <form class="filters" id="filters" hidden aria-label="Filter the activity summary">
+  <!-- Narrowing the log by account and by date. Part of the owner's page, so
+       it is hidden until log.js has been told who is reading — same gate as
+       the log itself, and it never appears on the locked view. -->
+  <form class="filters" id="filters" hidden aria-label="Filter the activity log">
     <div class="filter-field">
       <label class="label" for="filter-account">Account</label>
       <select id="filter-account">
@@ -125,19 +126,26 @@
     <button class="btn btn-quiet btn-sm filter-clear" id="filter-clear" type="button" hidden>Clear</button>
   </form>
 
-  <!-- Who held what, totalled per person per account per day — narrowed by
-       the filters above. Completed time comes from pairing claimed/released
-       log lines; a still-open hold is read straight from /locks, so
-       "ongoing" is never a guess. Its own empty state already says when
-       filters match nothing, so there is no separate count line above it. -->
-  <section class="held-summary" id="held-summary" aria-label="Time held, by day" hidden>
-    <h2 class="held-summary-head">Time held, by day</h2>
-    <div id="held-summary-list"></div>
-    <p class="held-summary-foot" id="held-summary-foot" hidden></p>
-  </section>
+  <!-- How much of what's loaded survived the filters. Shown only while
+       something is filtering, because "showing 200 of 200" is noise. -->
+  <p class="filter-count" id="filter-count" hidden role="status"></p>
+
+  <ul class="log" id="log-list" aria-live="polite">
+    <li class="log-empty">Loading…</li>
+  </ul>
+
+  <!-- Older entries are fetched on demand rather than all at once, so the page
+       stays fast no matter how long the log gets. Hidden once the beginning
+       of the log is reached, or while there is nothing loaded yet to page
+       before. -->
+  <div class="log-more" id="log-more" hidden>
+    <button class="btn btn-quiet btn-sm" id="log-more-btn" type="button">Load 200 older entries</button>
+  </div>
+
+  <p class="log-foot" id="log-foot" hidden></p>
 
 </main>
 
-<script type="module" src="activity.js"></script>
+<script type="module" src="log.js"></script>
 </body>
 </html>

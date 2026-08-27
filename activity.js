@@ -1,10 +1,12 @@
-// The activity page: the whole log, on its own, so the board stays one screen.
+// The activity summary page: who held what, and for how long, totalled per
+// person per account per day. The line-by-line record lives on its own page
+// (log.js) — this one is meant to be skimmed, not scrolled.
 //
 // Read-only. Nothing on this page writes, which is why it needs neither lock.js
 // nor accounts.js.
 import { ref, onValue, get, query, limitToLast }
   from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js';
-import { initClock, formatLogTime, formatDuration, serverNow } from './clock.js';
+import { initClock, formatDuration, serverNow } from './clock.js';
 import { loadIdentity } from './identity.js';
 import { connect, showBanner, watchConnection, renderWho } from './boot.js';
 import { initTheme } from './theme.js';
@@ -12,68 +14,12 @@ import { initKineticGrid } from './grid.js';
 
 const el = (id) => document.getElementById(id);
 
-// Deeper than the board's old twelve, because scrolling back is the entire
-// reason this page exists. Still bounded: the log is append-only and grows
-// forever, and nobody reads the thousandth line.
+// The window of raw log lines this summary is built from. Not shown on this
+// page — see log.js for the line-by-line record — but still what limits how
+// far back a completed (not ongoing) session can be paired from.
 const LOG_LIMIT = 200;
 
 let db = null;
-
-/* ------------------------------------------------------------------ lines */
-
-// Names and reasons are free text typed by colleagues, so every line is built
-// with textContent. Nothing here touches innerHTML.
-function describe(entry) {
-  // The name is typed and the email is not, so the email is shown alongside it:
-  // the line has to say who really did this, not only who said they did.
-  // Omitted when they are the same string, which is how force-release entries
-  // are written, and absent entirely from anything logged before this existed.
-  const shown = entry.name || 'Someone';
-  const name = entry.email && entry.email !== entry.name
-    ? `${shown} (${entry.email})`
-    : shown;
-
-  // v1 entries predate multiple accounts and carry no label.
-  const target = entry.accountLabel ? `${entry.accountLabel}` : 'the account';
-
-  switch (entry.action) {
-    case 'claimed':
-      return `${name} claimed ${target}`;
-    case 'released':
-      return `${name} released ${target}`;
-    case 'force-released': {
-      const who = entry.heldBy ? ` (held by ${entry.heldBy})` : '';
-      const why = entry.reason ? `: “${entry.reason}”` : '';
-      return `${name} force-released ${target}${who}${why}`;
-    }
-    case 'joined-queue':
-      return `${name} joined the queue for ${target}`;
-    case 'left-queue':
-      return `${name} left the queue for ${target}`;
-    default:
-      return `${name} ${entry.action || 'did something'}`;
-  }
-}
-
-function logLine(entry) {
-  const li = document.createElement('li');
-
-  // Which of the three things happened, before the sentence has been read.
-  // Styling only — the line still says it in words, and an entry from a future
-  // version with an action nobody here has heard of just gets the empty dot.
-  if (typeof entry.action === 'string') li.dataset.action = entry.action;
-
-  const time = document.createElement('span');
-  time.className = 'log-time';
-  time.textContent = typeof entry.at === 'number' ? formatLogTime(entry.at) : '';
-
-  const text = document.createElement('span');
-  text.className = 'log-text';
-  text.textContent = describe(entry);
-
-  li.append(time, text);
-  return li;
-}
 
 /* ---------------------------------------------------------------- filters */
 
@@ -81,7 +27,7 @@ function logLine(entry) {
 // log is keyed by push id, so a server-side date query would need an index and
 // a fresh listener on every change of mind; sifting two hundred lines costs
 // nothing and keeps the page to one subscription. The price is that filters
-// cannot see past the window, which is why the foot line says so.
+// cannot see past the window, which is why the held-summary foot line says so.
 const filters = { accountId: '', from: '', to: '' };
 
 // The window, newest first, exactly as the log gave it to us.
@@ -382,16 +328,16 @@ function heldRow(row) {
   return li;
 }
 
-function renderHeldSummary(groups, total) {
+function renderHeldSummary(groups, total, note) {
   const container = el('held-summary-list');
   container.textContent = '';
 
   if (!groups.length) {
     const empty = document.createElement('p');
     empty.className = 'held-empty';
-    empty.textContent = anyFilter()
+    empty.textContent = note || (anyFilter()
       ? 'No completed or ongoing holds match these filters.'
-      : 'No completed or ongoing holds yet.';
+      : 'No completed or ongoing holds yet.');
     container.append(empty);
   } else {
     for (const group of groups) {
@@ -422,67 +368,20 @@ function renderHeldSummary(groups, total) {
   foot.hidden = !foot.textContent;
 }
 
-/* ----------------------------------------------------------------- render */
-
-function render(shown, total, note) {
-  const list = el('log-list');
-  list.textContent = '';
-
-  if (!shown.length) {
-    const empty = document.createElement('li');
-    empty.className = 'log-empty';
-    empty.textContent = note || (total
-      ? 'Nothing in the window matches these filters.'
-      : 'No activity yet.');
-    list.append(empty);
-  } else {
-    for (const entry of shown) list.append(logLine(entry));
-  }
-
-  // Only worth saying once the window is actually cutting something off — and
-  // once it is, anyone filtering has to know the filters cannot reach past it.
-  const foot = el('log-foot');
-  foot.textContent = total >= LOG_LIMIT
-    ? anyFilter()
-      ? `The window is the most recent ${LOG_LIMIT} entries. Filters search inside it, not beyond it.`
-      : `Showing the most recent ${LOG_LIMIT} entries.`
-    : '';
-  foot.hidden = !foot.textContent;
-}
-
-function renderCount(shown, total, note) {
-  const count = el('filter-count');
-
-  if (!anyFilter()) {
-    count.textContent = '';
-    count.hidden = true;
-    return;
-  }
-
-  count.textContent = note
-    || `Showing ${shown} of ${total} ${total === 1 ? 'entry' : 'entries'}.`;
-  count.dataset.tone = note ? 'error' : 'plain';
-  count.hidden = false;
-}
-
 // The one place the filters meet the entries. Everything that changes either
 // calls this and nothing else.
 function apply() {
   const from = filters.from ? dayBounds(filters.from)?.start ?? null : null;
   const to = filters.to ? dayBounds(filters.to)?.end ?? null : null;
 
-  // Two valid dates in the wrong order is a typo, not an empty log, and saying
-  // "no activity" to it would send someone looking for a bug.
+  // Two valid dates in the wrong order is a typo, not an empty summary, and
+  // saying "nothing held" to it would send someone looking for a bug.
   const backwards = from !== null && to !== null && from > to;
   const note = backwards ? 'That range ends before it starts.' : '';
 
-  const shown = backwards ? [] : entries.filter((entry) => matches(entry, from, to));
-
   el('filter-clear').hidden = !anyFilter();
   syncPresets();
-  renderCount(shown.length, entries.length, note);
-  render(shown, entries.length, note);
-  renderHeldSummary(backwards ? [] : summariseHeldTime(from, to), entries.length);
+  renderHeldSummary(backwards ? [] : summariseHeldTime(from, to), entries.length, note);
 }
 
 function setEntries(next) {
@@ -558,13 +457,11 @@ function readLog(snap) {
 // the owner controls on the board — see the README before building on it.
 function showLocked() {
   el('locked').hidden = false;
-  el('log-list').hidden = true;
   el('sub').hidden = true;
   // The filters start hidden and are only shown once the reader has been named,
-  // so this is belt and braces — but the controls must never outlive the log
-  // they narrow.
+  // so this is belt and braces — but the controls must never outlive the
+  // summary they narrow.
   el('filters').hidden = true;
-  el('filter-count').hidden = true;
   el('held-summary').hidden = true;
   // Nothing is connecting, so a pill that says "connecting…" forever would be
   // a lie.

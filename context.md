@@ -24,8 +24,13 @@ Last updated: 2026-08-27.
 
 ```
 index.html          markup, card templates, inline critical styles
+activity.html       activity summary — "Time held, by day", admin only
+log.html            full line-by-line log, admin only, paged
 styles.css          all styling and the design tokens
 app.js              startup, wiring, board rendering
+activity.js         activity summary: pairs log lines into held time
+log.js              full log: paged reads of /log
+boot.js             Firebase init, sign-in, banner, connection pill, identity chip
 lock.js             claim / release / force-release transactions
 queue.js            join / leave the per-account queue
 accounts.js         account metadata writes
@@ -141,6 +146,36 @@ Board`), updated from `updateTitle()` on every board render. At the
 requester's instruction it is now just `VuePulse Account Board`, matching
 `index.html`'s `<title>` — `updateTitle()` and its call site were removed
 since a static title needs no JS to set it.
+
+## The activity page, split in two (2026-08-27)
+
+What was one increasingly crowded page — filters, "Time held, by day", and
+the full line-by-line log all stacked on top of each other — is now two,
+matching how `index.html` and the activity page already split by concern:
+
+- `activity.html` / `activity.js` — the **summary**. What "Activity" opens to
+  now. Filters, then "Time held, by day". Still reads the same `/log` window
+  and `/locks` to build it; just no longer renders the raw lines.
+- `log.html` / `log.js` — the **full log**. Its own filters (independent of
+  the summary's — no state carried across the link), the line-by-line list,
+  and a "Load 200 older entries" button.
+
+Nav between all three pages (`index.html`, `activity.html`, `log.html`) is
+now a small set of pill-shaped links in the topbar rather than bare inline
+text, so "how do I get back" has an obvious answer on every one of them.
+
+**The log now pages.** It used to hard-cap at the most recent 200 entries
+with a footnote; now that 200 is just the live window, kept current by
+`onValue`, and "Load older" fetches another 200 further back with a one-off
+`get()` anchored on `endBefore(oldestKeyLoaded)`. Entries are kept in a
+`Map` keyed by push id rather than a plain array, so a live update and a
+paged-in batch can never race or gap each other — the log is append-only
+(enforced by the rules), so a key already in the map never needs re-fetching.
+No rules change needed: ordering by key needs no `.indexOn`.
+
+The summary intentionally still only ever sees the live 200-window — it was
+already designed as "a summary to skim, not a stopwatch" (see below), and
+pagination there was explicitly out of scope for this round.
 
 ## Open items
 

@@ -43,12 +43,15 @@ when, and when they expect to be done. That is the whole product.
   first-come-first-served the moment it actually frees up.
 - **One line for the whole board.** `2 of 5 accounts free`, with a meter, above
   the cards — the question people walk up with, answered before they read one.
-- **An append-only activity log**, on its own page, narrowable by account and by
-  date — today, the last 7 or 30 days, or any range you type.
-- **Time held, by day** (admin only, same page). Who held which account and for
-  how long, totalled per person per account per day — completed time paired up
-  from the log, a still-open hold read straight from `/locks` so "ongoing" is
-  never a guess. The same account/date filters above narrow it too.
+- **Two admin-only pages, not one crowded one.** The activity summary (`Time
+  held, by day` — who held what and for how long, totalled per person per
+  account per day) is what "Activity" opens to; the append-only line-by-line
+  log is one click further in. Both are narrowable by account and by date —
+  today, the last 7 or 30 days, or any range you type — with their own
+  filters, so neither page waits on the other to load.
+- **The log pages itself in.** Only the most recent 200 entries load at
+  first; a button fetches another 200 further back on demand, so the page
+  stays fast no matter how long the log has grown.
 - **The tab title stays put** — `VuePulse Account Board` — easy to find pinned.
 - **Light and dark.** Follows the operating system by default; the toggle in the
   corner overrides it and is remembered.
@@ -111,10 +114,12 @@ sitting free for two hours is healthy and would look stale. It subscribes to
 
 ```
 index.html          the board: markup, card templates, inline critical styles
-activity.html       the activity log, on its own page
-styles.css          all styling and the design tokens, shared by both pages
+activity.html       the activity summary — "Time held, by day", admin only
+log.html            the full line-by-line log, admin only, one click from the summary
+styles.css          all styling and the design tokens, shared by all three pages
 app.js              the board: wiring, rendering, event handlers
-activity.js         the activity page: reads the log, writes nothing
+activity.js         the activity summary: pairs log lines into held time, writes nothing
+log.js              the full log: paged reads of /log, writes nothing
 boot.js             Firebase init, sign-in, banner, connection pill, identity chip
 lock.js             claim / release / force-release transactions
 queue.js            join / leave the per-account queue
@@ -131,8 +136,8 @@ logo.png            the mark: favicon, wordmark, and source of the palette
 ```
 
 Flat on purpose. No `src/`, no `components/`, no `utils/`, no state management
-layer, no event bus. `boot.js` exists only because two pages need the same few
-lines of startup — a shared prelude, not a framework.
+layer, no event bus. `boot.js` exists only because three pages need the same
+few lines of startup — a shared prelude, not a framework.
 
 `preview.html` fills the real `<template>` elements from `index.html` with
 fixtures, so every card state can be looked at side by side without touching
@@ -235,11 +240,12 @@ so the database rules cannot tell one reader from another — they can only say
 
 - The **owner check hides buttons.** A teammate with devtools can still write to
   `/accounts`. It is a tidy-up, not a permission.
-- The **activity page** shows the log — and its filters — to the owner and an
-  explanation to everyone else, and nothing links to it. A non-owner's browser
-  never fetches the log — but the entries are still in Firebase and still
-  readable by anyone already past Access. A curtain, not a lock. The filters
-  narrow what is on screen; they are not a privacy boundary either.
+- The **activity summary and full log pages** show the log — and their
+  filters — to the owner and an explanation to everyone else, and the nav
+  link to them only renders for the owner. A non-owner's browser never
+  fetches the log — but the entries are still in Firebase and still readable
+  by anyone already past Access. A curtain, not a lock. The filters narrow
+  what is on screen; they are not a privacy boundary either.
 - **`firebase-config.js` is committed** because the static host must serve it.
   The web API key is not a secret and is designed to ship in client code, but
   the rules only require anonymous sign-in — so anyone holding that config can
