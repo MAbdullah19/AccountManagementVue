@@ -18,7 +18,11 @@ import { initCardFx } from './cardfx.js';
 const el = (id) => document.getElementById(id);
 
 const NAME_KEY = 'account-board:name';
-const DEFAULT_MINUTES = 30;
+// What an empty minutes field means. Deliberately the same 2.5 hours as
+// lock.js's SESSION_ALERT_AFTER_MS, so somebody who does not fill it in goes
+// overdue at the same moment the board asks them to wrap up, rather than
+// carrying a red card around for two hours before it.
+const DEFAULT_MINUTES = 150;
 
 // Below this the cards already are the summary, and a strip saying "1 of 1
 // available" above a single card is just the card again in smaller type.

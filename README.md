@@ -28,7 +28,8 @@ when, and when they expect to be done. That is the whole product.
 ## What it does
 
 - **Claim and release.** Type your name, press Claim. Your name is remembered,
-  so after the first time it is one click. Minutes are optional; empty means 30.
+  so after the first time it is one click. Minutes are optional; empty means
+  150 — the same 2.5 hours at which the board asks you to wrap up.
 - **Live for everyone.** Every board updates within a second of any change, with
   no polling and no refresh. A ticking elapsed timer runs locally off a single
   server timestamp.

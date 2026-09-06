@@ -125,8 +125,8 @@
     <header class="qpanel-head">
       <h2 class="qpanel-title">Queue<span class="qpanel-count" id="queue-count"></span></h2>
       <p class="qpanel-sub">
-        One line for every account. When one frees up, whoever is next in line
-        has 7 minutes to claim it — miss it and you lose your place.
+        Universal queue for all accounts. When one frees up, whoever is next in line
+        has 7 minutes to claim their place.
       </p>
     </header>
 
@@ -197,12 +197,12 @@
         </label>
 
         <!-- Optional: an empty duration means "the usual", which app.js reads
-             as 30 minutes. In sight rather than behind a disclosure, because
+             as 150 minutes. In sight rather than behind a disclosure, because
              there is only one field left to show. -->
         <label class="field field-short">
           <span class="label">Minutes <span class="muted">(optional)</span></span>
           <input data-el="minutes" type="number" min="1" max="480" step="1"
-                 inputmode="numeric" placeholder="30">
+                 inputmode="numeric" placeholder="150">
         </label>
 
         <button class="btn btn-primary" data-el="claim-btn" type="submit">Claim</button>
