@@ -61,10 +61,15 @@ function describe(entry) {
       const why = entry.reason ? `: “${entry.reason}”` : '';
       return `${name} force-released ${target}${who}${why}`;
     }
+    // The queue used to be per account and its entries carried one. There is
+    // one queue for the whole board now and new entries name nothing, so the
+    // label is only mentioned when an older line actually has it.
     case 'joined-queue':
-      return `${name} joined the queue for ${target}`;
+      return entry.accountLabel ? `${name} joined the queue for ${target}` : `${name} joined the queue`;
     case 'left-queue':
-      return `${name} left the queue for ${target}`;
+      return entry.accountLabel ? `${name} left the queue for ${target}` : `${name} left the queue`;
+    case 'queue-timeout':
+      return `${name} did not claim ${target} in time and left the queue`;
     default:
       return `${name} ${entry.action || 'did something'}`;
   }

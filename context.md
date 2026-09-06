@@ -4,7 +4,7 @@ Working state for the Account Board. `plan.md` is what we intend to do;
 this file is what is currently true. Update it when a fact changes, not when
 work merely progresses — progress lives in `plan.md`'s checkboxes.
 
-Last updated: 2026-08-27.
+Last updated: 2026-09-05.
 
 ---
 
@@ -32,7 +32,7 @@ activity.js         activity summary: pairs log lines into held time
 log.js              full log: paged reads of /log
 boot.js             Firebase init, sign-in, banner, connection pill, identity chip
 lock.js             claim / release / force-release transactions
-queue.js            join / leave the per-account queue
+queue.js            join / leave the board's queue, and whose turn it is
 accounts.js         account metadata writes
 identity.js         Cloudflare Access identity + admin check
 functions/api/identity.js   Pages Function: reads the Access email at the edge
@@ -71,8 +71,11 @@ migrating to one.
 
 These come from v1 and have not been revisited:
 
-- Nothing is enforced. The board reports, it does not block.
-- No auto-release, no heartbeat. The queue (see below) is a signal, same rule.
+- Nothing is enforced. The board reports, it does not block. The queue's
+  seven-minute turn (see below) is the one partial exception, and it is still
+  only a hidden button and a client-side refusal — the rules are unchanged.
+- No auto-release, no heartbeat. A held account is never taken back by the
+  board, however long it has been held.
 - Nobody logs into the board itself. People type a display name, remembered in
   `localStorage`. Access at the edge is the only real gate.
 - Force release requires a reason and never sits behind a confirm dialog. It
@@ -103,15 +106,69 @@ reads or writes them anymore — and were left in place rather than scripted out
 consistent with how this project has always treated stale-node cleanup as a
 manual console step (see the lock migration in `plan.md` §3).
 
-## The queue (added after v2)
+## The queue (added after v2, rebuilt 2026-09-05)
 
-Once an account has been held for **2.5 hours**, anyone else can join a queue
-for it — visible to everyone, and it's what tells the holder "people are
-waiting, please wrap up." Same honour-system rule as everything else: joining
-the queue reserves nothing, and the moment the account actually frees up,
-claiming is first-come-first-served regardless of queue position. Lives in
-`queue.js`, at `/queue/{accountId}/{entryId}` in the database, alongside
-`/accounts`, `/locks` and `/log`.
+**The first version, now gone.** A queue per account, joinable only after the
+holder's 2.5-hour protected window, reserving nothing: the moment an account
+freed up, claiming was first-come-first-served regardless of who had been
+waiting. It lived at `/queue/{accountId}/{entryId}` and rendered inside each
+held card.
+
+**What replaced it**, at the requester's instruction:
+
+- **One queue for the whole board**, at `/queue/{entryId}`, rendered in its own
+  panel above the card grid rather than inside any card. Push keys sort
+  chronologically, so join order is priority order with no rank field.
+- **Joinable at any time by anyone**, whether or not anything is held. The
+  2.5-hour gate on *joining* is gone.
+- **One place each**, deduplicated on `sameIdentity` — the email where both
+  sides have one, the typed name otherwise. Name and email are both shown, with
+  the position number.
+- **Seven minutes to claim.** When an account frees up it is offered to whoever
+  is next in line, one offer per free account, oldest-free to
+  longest-waiting. `RESERVATION_MS` in `queue.js`.
+- **Miss it and you are dropped** from the queue entirely and the account goes
+  back to first-come-first-served. Logged as `queue-timeout`.
+- **Claiming anything dequeues you**, silently — the claim line is already the
+  log entry that matters.
+- **Anyone can leave; admins can remove anybody.**
+
+### Two things worth knowing before changing it
+
+**Reservations are derived, never stored.** `computeReservations()` takes the
+accounts, the locks and the queue and returns the same answer in every browser.
+A `/reservations` subtree would need somebody to write it when an account frees,
+clear it when the window closes, and have an answer for the tab that was closed
+before it could do either. The one thing this needed from the database was a
+timestamp for when an account became free, which is the new `freedAt` on
+`/locks/{id}` — a lock freed before that field existed simply never offers a
+reservation.
+
+**Expiry has no server behind it.** Whichever browsers have the board open
+notice an expired turn and remove the entry, through a transaction, so several
+tabs racing is harmless — one commits, the rest read null and abort. With every
+tab closed nothing happens until somebody loads the page; the same person is
+then offered the next account to free up and times out again, so it self-heals.
+`RESERVATION_GRACE_MS` keeps an expired offer in its slot for a minute so the
+queue below it does not shuffle before the removal lands.
+
+### The 2.5 hours moved
+
+The number survived, doing a different job: `SESSION_ALERT_AFTER_MS` in
+`lock.js`. It no longer gates joining the queue — it is when the holder's own
+card asks them to wrap up. Separate from `overdue`, which still fires on the
+`expectedMinutes` they chose at claim time and is still what everyone else
+sees. Both alerts on a held card are shown to the holder alone.
+
+### Stale nested queue nodes
+
+Old `/queue/{accountId}/{entryId}` data is inert: `readQueue()` requires both
+`name` and `joinedAt` on the entry itself, so an old account-level node is
+dropped rather than shown as a nameless line, and the new rules reject writes
+to it. Left in place rather than scripted out, consistent with how this project
+has always treated stale-node cleanup (see the roster above, and the lock
+migration in `plan.md` §3) — deleting `/queue` once in the console is the
+tidy-up whenever somebody wants it.
 
 ## Time held, by day (added after the queue)
 
@@ -181,6 +238,12 @@ pagination there was explicitly out of scope for this round.
 
 - [x] ~~`database.rules.json` needed publishing~~ — done 2026-08-27: the
       `"queue"` block and the removed `users` schema are both live.
+- [ ] **`database.rules.json` needs publishing again (2026-09-05).** The queue
+      rebuild reshaped `"queue"` from `$accountId/$entryId` to a flat `$entryId`
+      and added `freedAt` to `"locks"`. Until it is pasted into Realtime
+      Database → Rules, joining the queue and releasing an account are both
+      rejected — and, per the note at the bottom of this file, that arrives as
+      permission-denied rather than as a validation error.
 - [ ] **The v2 rules are not published yet, and nothing works until they are.**
       Firebase denies any path the rules do not name, so the board currently
       reports `permission_denied at /locks`. Paste `database.rules.json` into

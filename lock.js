@@ -20,6 +20,15 @@ const MAX_EMAIL = 120;
 const MIN_MINUTES = 1;
 const MAX_MINUTES = 480;
 
+// How long somebody may hold an account before the board asks them, on their
+// own card, to wrap up. Unrelated to `expectedMinutes`, which is the estimate
+// they gave when claiming and which drives the (softer) overdue state: this one
+// is the same number for everybody and does not move.
+//
+// Nothing enforces it. There is no auto-release and no heartbeat — see
+// context.md's standing constraints — so this only decides what the card says.
+export const SESSION_ALERT_AFTER_MS = 2.5 * 60 * 60 * 1000;
+
 const trim = (value) => (typeof value === 'string' ? value.trim() : '');
 
 // A key that reaches the database has to be a legal path segment. Nothing in
@@ -45,6 +54,25 @@ const cleanEmail = (email) => {
 // Written into both the lock and the log rather than the log alone, so "may I
 // release this?" can be answered from the lock without a second lookup.
 const withEmail = (entry, email) => (email ? { ...entry, email } : entry);
+
+// The board's single rule for "are these two the same person": the email when
+// both sides have one, because Access authenticated it, and the typed display
+// name otherwise. Both arguments are `{ name, email }` — a lock's `holder` has
+// to be handed in as `name`.
+//
+// Exported and shared on purpose. Release, the queue's "you are already in it"
+// check, the reservation guard below and the board's "is this mine?" rendering
+// all answer the same question, and they must never drift apart: a rule that
+// says a release is allowed but the button is hidden is worse than either
+// answer on its own.
+export function sameIdentity(a, b) {
+  const emailA = cleanEmail(a?.email);
+  const emailB = cleanEmail(b?.email);
+  if (emailA && emailB) return emailA === emailB;
+
+  const nameA = trim(a?.name);
+  return Boolean(nameA) && nameA === trim(b?.name);
+}
 
 // Returns cleaned values, or null if the rules would reject them.
 function normalise({ holder, note, expectedMinutes }) {
@@ -77,13 +105,26 @@ async function logQuietly(db, account, entry) {
   }
 }
 
-export async function claim(db, account, { holder, email, note, expectedMinutes }) {
+// `reservedFor` is `{ name, email }` when the queue has handed this account to
+// somebody for their seven minutes, and null otherwise. app.js works out who
+// that is — the derivation needs the whole board, which this module does not
+// see — but the refusal lives here so that a new call site cannot claim past a
+// reservation by forgetting to ask.
+//
+// Client-side, like every other gate on this board (see identity.js): the rules
+// still let any signed-in client write to /locks. It is the button that is
+// gone, not the permission.
+export async function claim(db, account, { holder, email, note, expectedMinutes, reservedFor }) {
   if (!isValidAccountId(account?.id)) return { ok: false, reason: 'invalid' };
 
   const clean = normalise({ holder, note, expectedMinutes });
   if (!clean) return { ok: false, reason: 'invalid' };
 
   const who = cleanEmail(email);
+
+  if (reservedFor && !sameIdentity(reservedFor, { name: clean.holder, email: who })) {
+    return { ok: false, reason: 'reserved', reservedFor };
+  }
 
   let result;
   try {
@@ -107,6 +148,13 @@ export async function claim(db, account, { holder, email, note, expectedMinutes 
   return { ok: true, holder: clean.holder };
 }
 
+// What a freed lock looks like. `freedAt` is the whole reason it is a shape
+// rather than a literal: the queue's seven-minute reservation window has to
+// start from the moment the account actually became available, and nothing
+// else on the board records that. A lock freed before this field existed
+// simply never offers a reservation, which is the safe way to be wrong.
+const freed = () => ({ status: 'free', freedAt: serverNow() });
+
 export async function release(db, account, { holder, email }) {
   if (!isValidAccountId(account?.id)) return { ok: false, reason: 'invalid' };
 
@@ -122,10 +170,9 @@ export async function release(db, account, { holder, email }) {
       // Prefer the email when both sides have one: it is exact, where the name
       // is a string typed twice and easily typed differently the second time.
       // Locks claimed before this field existed still fall back to the name.
-      const mine = who && current.email ? current.email === who : current.holder === name;
-      if (!mine) return;
+      if (!sameIdentity({ name: current.holder, email: current.email }, { name, email: who })) return;
 
-      return { status: 'free' };
+      return freed();
     });
   } catch (err) {
     return { ok: false, reason: 'error', error: err };
@@ -169,7 +216,7 @@ export async function forceRelease(db, account, { by, email, reason, heldBy }) {
   try {
     result = await runTransaction(ref(db, lockPath(account.id)), (current) => {
       if (!current || current.status !== 'held') return;
-      return { status: 'free' };
+      return freed();
     });
   } catch (err) {
     return { ok: false, reason: 'error', error: err };

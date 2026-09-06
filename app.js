@@ -4,10 +4,10 @@
 // The version is pinned deliberately; do not switch to a floating tag.
 // Startup itself lives in boot.js, which the activity page shares.
 import { ref, onValue, get } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js';
-import { initClock, serverNow, formatElapsed, formatDuration, formatTimeOfDay }
+import { initClock, serverNow, formatElapsed, formatDuration, formatTimeOfDay, formatCountdown }
   from './clock.js';
-import { claim, release, forceRelease } from './lock.js';
-import { joinQueue, leaveQueue, canJoinQueue, msUntilQueueable } from './queue.js';
+import { claim, release, forceRelease, sameIdentity, SESSION_ALERT_AFTER_MS } from './lock.js';
+import { joinQueue, leaveQueue, dropTimedOut, computeReservations } from './queue.js';
 import { createAccount, renameAccount, deleteAccount } from './accounts.js';
 import { loadIdentity } from './identity.js';
 import { connect, showBanner, watchConnection, renderWho } from './boot.js';
@@ -28,6 +28,11 @@ const SUMMARY_MIN_ACCOUNTS = 2;
 // fills a desktop row without promising a number the board may not have.
 const SKELETON_CARDS = 3;
 
+// How long to wait before trying again to remove a queue entry whose seven
+// minutes ran out. There is no server here, so whichever browsers have the
+// board open are what does this — see sweepTimeouts.
+const SWEEP_RETRY_MS = 30000;
+
 // Set once in start(). Handlers are wired per card and would otherwise all have
 // to close over it.
 let db = null;
@@ -38,7 +43,11 @@ const state = {
   accounts: [],
   accountsLoaded: false,
   locks: {},
-  queues: {},
+  // The whole board's queue, in join order. One line, not one per account.
+  queue: [],
+  // Derived from the three above on every render and every tick — never read
+  // from the database, never written to it. See computeReservations.
+  reservations: { byAccount: new Map(), byEntryId: new Map() },
   identity: { email: '', name: '', isAdmin: false, source: 'none' },
   connected: false,
   everConnected: false,
@@ -50,6 +59,15 @@ const state = {
 const cards = new Map();
 let addCard = null;
 let skeletons = [];
+
+// entryId -> row object, for the same reason: the queue's countdowns move every
+// second and rebuilding the list that often would blow away anybody's focus.
+const queueRows = new Map();
+let queueSignature = '';
+
+// entryId -> when this tab last tried to remove it. Only to stop every open tab
+// hammering the same delete once a second while the write is in flight.
+const sweeps = new Map();
 
 /* ------------------------------------------------------------ saved name */
 
@@ -83,6 +101,7 @@ const MESSAGES = {
   'not-holder': 'The board says someone else holds it now. Use Force release.',
   'already-free': 'It was already free.',
   'no-reason': 'Type a reason first.',
+  reserved: 'Somebody in the queue has first refusal on this one for a few more minutes.',
   invalid: 'Check the name (1 to 40 characters) and the minutes (1 to 480).',
   error: 'That write was rejected. Check the length of what you typed, then try again.',
 };
@@ -93,7 +112,7 @@ const ADMIN_MESSAGES = {
 };
 
 const QUEUE_MESSAGES = {
-  'already-queued': 'You are already in the queue for this one.',
+  'already-queued': 'You are already in the queue.',
   invalid: 'Check the name (1 to 40 characters).',
   error: 'That write was rejected. Try again.',
 };
@@ -123,28 +142,39 @@ function isOverdue(lock) {
   return serverNow() > lock.claimedAt + lock.expectedMinutes * 60000;
 }
 
-// Matched on the email where both sides have one — same rule lock.js uses to
-// decide whether a release would be accepted. Shared by the release button
-// and the queue view, so "can I release" and "am I the one people are
-// waiting on" never drift apart.
+// Who the board thinks is reading it: the Access email where there is one, and
+// the name typed into this browser otherwise. Every "is this mine?" question on
+// the page goes through lock.js's sameIdentity with this on one side, so the
+// release button, the queue and the reservation all answer it identically.
+const me = () => ({ name: savedName(), email: state.identity.email });
+
 function isMineLock(lock) {
   if (!isHeld(lock)) return false;
-  return state.identity.email && lock.email
-    ? lock.email === state.identity.email
-    : Boolean(savedName()) && lock.holder === savedName();
+  return sameIdentity({ name: lock.holder, email: lock.email }, me());
 }
 
-// Same identity rule, for a queue entry rather than a lock.
-function queueEntryIsMine(entry) {
-  return state.identity.email && entry.email
-    ? entry.email === state.identity.email
-    : Boolean(savedName()) && entry.name === savedName();
+const entryIsMine = (entry) => sameIdentity(entry, me());
+
+// The account this card is being held open for, if that offer is still live.
+// An expired one is deliberately not returned: the account is claimable by
+// anyone again the moment the seven minutes are up, whether or not the entry
+// behind it has been swept yet.
+function activeReservation(accountId) {
+  const reservation = state.reservations.byAccount.get(accountId);
+  return reservation && !reservation.expired ? reservation : null;
 }
 
 /* ----------------------------------------------------------- reading data */
 
 // Push keys sort chronologically as strings, so the queue reads out in join
-// order (FIFO) with no separate ordering field.
+// order — which, since there is one queue for the whole board, is also the
+// priority order. No separate rank field, and nothing to renumber when
+// somebody leaves from the middle.
+//
+// `joinedAt` is required as well as `name` because the queue used to be nested
+// one level deeper, under an account id. Any of those left in the database read
+// back here as a node with neither field and are dropped rather than shown as a
+// nameless line. See context.md.
 function readQueue(node) {
   if (!node || typeof node !== 'object') return [];
 
@@ -155,7 +185,7 @@ function readQueue(node) {
       email: typeof val?.email === 'string' ? val.email.trim() : '',
       joinedAt: typeof val?.joinedAt === 'number' ? val.joinedAt : 0,
     }))
-    .filter((entry) => entry.name)
+    .filter((entry) => entry.name && entry.joinedAt)
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 
@@ -266,18 +296,29 @@ function wireCard(card) {
     saveName(holder);
 
     const account = card.account;
+
+    // Read at submit time rather than from whatever the card was last drawn
+    // with: a reservation can start or expire while somebody sits with the
+    // form open.
+    const reservation = activeReservation(card.id);
+
     const result = await whileBusy(els['claim-btn'], 'Claiming…', () =>
-      claim(db, account, { holder, email: state.identity.email, expectedMinutes })
+      claim(db, account, {
+        holder,
+        email: state.identity.email,
+        expectedMinutes,
+        reservedFor: reservation ? reservation.entry : null,
+      })
     );
     syncClaimButton(card);
 
     if (result.ok) {
-      // Best-effort: a claimer who was waiting in the queue for this account
-      // no longer needs to be. Silent, because the claim itself is already
-      // the log line that matters — a "left the queue" line right next to it
-      // would just be noise.
-      const mine = (card.queue || []).find((entry) => queueEntryIsMine(entry));
-      if (mine) leaveQueue(db, account, mine.id, { name: mine.name, email: mine.email, silent: true });
+      // Best-effort: a claimer who was waiting in the queue no longer needs to
+      // be, whether or not this was the account reserved for them. Silent,
+      // because the claim itself is already the log line that matters — a
+      // "left the queue" line right next to it would just be noise.
+      const mine = state.queue.find(entryIsMine);
+      if (mine) leaveQueue(db, mine.id, { name: mine.name, email: mine.email, silent: true });
       return; // the listener redraws the card
     }
 
@@ -293,40 +334,6 @@ function wireCard(card) {
       release(db, card.account, { holder: savedName(), email: state.identity.email })
     );
     if (!result.ok) setMsg(els['held-msg'], explain(result), 'error');
-  });
-
-  els['queue-join-btn'].addEventListener('click', async () => {
-    setMsg(els['queue-msg'], '');
-
-    // Access already knows who this is. The name field only appears for an
-    // unrecognised visitor — in practice, local development — same rule as
-    // force release's who-field.
-    const typed = els['queue-who'].value.trim();
-    const name = savedName() || typed;
-
-    if (!name) {
-      setMsg(els['queue-msg'], 'Type your name first.', 'error');
-      els['queue-who'].focus();
-      return;
-    }
-
-    if (typed && !savedName()) saveName(typed);
-
-    const result = await whileBusy(els['queue-join-btn'], 'Joining…', () =>
-      joinQueue(db, card.account, { name, email: state.identity.email })
-    );
-    if (!result.ok) setMsg(els['queue-msg'], explainQueue(result), 'error');
-  });
-
-  els['queue-leave-btn'].addEventListener('click', async () => {
-    setMsg(els['queue-msg'], '');
-    const mine = (card.queue || []).find((entry) => queueEntryIsMine(entry));
-    if (!mine) return;
-
-    const result = await whileBusy(els['queue-leave-btn'], 'Leaving…', () =>
-      leaveQueue(db, card.account, mine.id, { name: mine.name, email: mine.email })
-    );
-    if (!result.ok) setMsg(els['queue-msg'], explainQueue(result), 'error');
   });
 
   // The reason field is the friction; the button unlocks once it has content.
@@ -463,10 +470,9 @@ function wireCardAdmin(card) {
 
 /* -------------------------------------------------------------- card render */
 
-function updateCard(card, account, lock, queueNode) {
+function updateCard(card, account, lock) {
   card.account = account;
   card.lock = lock || null;
-  card.queue = readQueue(queueNode);
 
   const { els } = card;
 
@@ -496,15 +502,10 @@ function updateCard(card, account, lock, queueNode) {
   els['view-free'].hidden = held;
   els['view-held'].hidden = !held;
 
-  if (held) {
-    renderHeld(card);
-  } else {
-    renderFree(card);
-    // The queue only ever renders inside the held view; a card that just
-    // went free would otherwise keep showing a stale "N waiting" badge from
-    // before it was released.
-    els['queue-badge'].hidden = true;
-  }
+  if (held) renderHeld(card);
+  else renderFree(card);
+
+  renderBadge(card);
 
   els.admin.hidden = !state.identity.isAdmin;
   if (!state.identity.isAdmin) {
@@ -513,10 +514,60 @@ function updateCard(card, account, lock, queueNode) {
   }
 }
 
+// The one thing about a card worth knowing before reading any of it. Only ever
+// a reservation now — "who is waiting" moved to the board's own queue panel,
+// where a single line for the whole board belongs.
+function renderBadge(card) {
+  // No held check needed: computeReservations never offers a held account, so
+  // this is empty for exactly the cards that should not carry it.
+  const reservation = activeReservation(card.id);
+  const badge = card.els['card-badge'];
+
+  badge.hidden = !reservation;
+  if (!reservation) {
+    badge.textContent = '';
+    return;
+  }
+  badge.textContent = entryIsMine(reservation.entry) ? 'Your turn' : 'Reserved';
+}
+
 function renderFree(card) {
+  const { els } = card;
+  const reservation = activeReservation(card.id);
+  const mine = Boolean(reservation) && entryIsMine(reservation.entry);
+
+  els.reserved.hidden = !reservation;
+  els['free-sub'].hidden = Boolean(reservation);
+
+  // Whoever it is reserved for still gets the form — for everyone else it is
+  // not there to click. lock.js refuses the write either way; this is what
+  // stops anyone having to find that out by being told no.
+  els['claim-form'].hidden = Boolean(reservation) && !mine;
+
+  if (reservation) {
+    const left = formatCountdown(reservation.expiresAt - serverNow());
+    card.root.dataset.reserved = mine ? 'mine' : 'other';
+
+    if (mine) {
+      els['reserved-word'].textContent = `Your turn — ${left} left`;
+      els['reserved-sub'].textContent =
+        'Claim it now. If the time runs out it goes to the next person and you lose your place in the queue.';
+    } else {
+      els['reserved-word'].textContent = `Reserved for ${reservation.entry.name} — ${left} left`;
+      els['reserved-sub'].textContent = reservation.entry.email
+        || 'First in the queue when this came free.';
+    }
+  } else {
+    delete card.root.dataset.reserved;
+  }
+
   // Prefilling the saved name is what makes claiming one click for a returning
-  // user. Never overwrite something they are in the middle of typing.
-  if (!card.els.name.value) card.els.name.value = savedName();
+  // user. Once per card: this now runs on every tick, and refilling a field
+  // somebody has deliberately cleared once a second is its own small hell.
+  if (!card.prefilled) {
+    if (!els.name.value) els.name.value = savedName();
+    card.prefilled = true;
+  }
   syncClaimButton(card);
 }
 
@@ -541,102 +592,200 @@ function renderHeld(card) {
   els['force-as'].hidden = !verified;
 
   renderHeldMeta(card);
-  renderQueue(card);
+  renderHeldAlerts(card);
 }
 
-// Who is waiting, and — depending on who is looking — either the button to
-// join or leave that line, or the nudge to the holder that they should not
-// have it much longer. Signal only: nothing here is enforced, and claiming
-// stays first-come-first-served the moment the lock actually frees up.
-function renderQueue(card) {
+// The two things the board says to a holder and to nobody else: that they have
+// had this a long time, and that people are waiting. Both only on their own
+// card — a nudge on somebody else's card is just noise to the person reading
+// it, since they cannot act on it.
+function renderHeldAlerts(card) {
   const { els } = card;
   const lock = card.lock;
-  const queue = card.queue || [];
+  const mine = isMineLock(lock);
 
-  els['queue-badge'].hidden = !queue.length;
-  els['queue-badge'].textContent = queue.length ? `${queue.length} waiting` : '';
-  els['queue-count'].textContent = queue.length ? ` (${queue.length})` : '';
+  const long = mine
+    && typeof lock.claimedAt === 'number'
+    && serverNow() - lock.claimedAt >= SESSION_ALERT_AFTER_MS;
 
-  const list = els['queue-list'];
-  list.textContent = '';
+  els['session-alert'].hidden = !long;
+  els['session-alert'].textContent = long
+    ? `You have had this for ${formatDuration(serverNow() - lock.claimedAt)}. Please finish up and release it.`
+    : '';
 
-  if (!queue.length) {
-    const empty = document.createElement('li');
-    empty.className = 'queue-empty';
-    empty.textContent = 'Nobody waiting yet.';
-    list.append(empty);
-  } else {
+  const waiting = state.queue.length;
+  const nudge = mine && waiting > 0;
+
+  els['queue-alert'].hidden = !nudge;
+  els['queue-alert'].textContent = nudge
+    ? `${waiting} ${waiting === 1 ? 'person is' : 'people are'} in the queue — please release when you can.`
+    : '';
+
+  els['card-alerts'].hidden = !long && !nudge;
+}
+
+/* -------------------------------------------------------------- the queue */
+
+// One line for the whole board, above the cards. Everyone in it, in order,
+// with their name and the email Access authenticated — a queue whose order is
+// visible is the only kind that settles an argument.
+function renderQueuePanel() {
+  const panel = el('queue-panel');
+
+  // Nothing to be next in line for until the board itself has arrived.
+  if (!state.accountsLoaded) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+
+  const queue = state.queue;
+  el('queue-count').textContent = queue.length ? ` (${queue.length})` : '';
+  el('queue-empty').hidden = queue.length > 0;
+
+  syncQueueRows(queue);
+
+  const mine = queue.find(entryIsMine) || null;
+  el('queue-leave-btn').hidden = !mine;
+  el('queue-join-btn').hidden = Boolean(mine);
+
+  // Access already knows who this is, so there is nothing to ask and nothing to
+  // get wrong. The name is only asked of an unrecognised visitor — in practice
+  // that means local development. Same rule as force release's who-field.
+  el('queue-who-field').hidden =
+    Boolean(mine) || Boolean(state.identity.email) || Boolean(savedName());
+}
+
+// The list is rebuilt only when its membership or order actually changes;
+// everything that moves on the clock is written into the existing nodes. A
+// queue redrawn from scratch once a second cannot be tabbed through.
+function syncQueueRows(queue) {
+  const signature = queue.map((entry) => entry.id).join(',');
+
+  if (signature !== queueSignature) {
+    queueSignature = signature;
+    queueRows.clear();
+
+    const list = el('queue-list');
+    list.textContent = '';
+
     for (const entry of queue) {
-      const li = document.createElement('li');
-
-      const name = document.createElement('span');
-      name.className = 'queue-name';
-      name.textContent = entry.name;
-      li.append(name);
-
-      const since = document.createElement('span');
-      since.className = 'queue-since';
-      since.textContent = `waiting ${formatDuration(serverNow() - entry.joinedAt)}`;
-      li.append(since);
-
-      // Anyone can leave their own spot; the owner can also clear somebody
-      // else's.
-      if (state.identity.isAdmin || queueEntryIsMine(entry)) {
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.className = 'queue-remove';
-        remove.textContent = '×';
-        remove.setAttribute('aria-label', `Remove ${entry.name} from the queue`);
-        remove.addEventListener('click', async () => {
-          setMsg(els['queue-msg'], '');
-          const result = await leaveQueue(db, card.account, entry.id, { name: entry.name, email: entry.email });
-          if (!result.ok) setMsg(els['queue-msg'], explainQueue(result), 'error');
-        });
-        li.append(remove);
-      }
-
-      list.append(li);
+      const row = buildQueueRow(entry);
+      queueRows.set(entry.id, row);
+      list.append(row.li);
     }
   }
 
-  const holder = isMineLock(lock);
+  queue.forEach((entry, index) => updateQueueRow(queueRows.get(entry.id), entry, index));
+}
 
-  if (holder) {
-    // The holder never joins or leaves their own account's queue — they just
-    // get the one line that matters.
-    els['queue-who-field'].hidden = true;
-    els['queue-join-btn'].hidden = true;
-    els['queue-leave-btn'].hidden = true;
-    els['queue-wait-note'].hidden = true;
-    els['queue-alert'].hidden = !queue.length;
-    els['queue-alert'].textContent = queue.length
-      ? `${queue.length} ${queue.length === 1 ? 'person is' : 'people are'} waiting — please wrap up when you can.`
-      : '';
-    return;
+function buildQueueRow(entry) {
+  const li = el('queue-row-template').content.firstElementChild.cloneNode(true);
+  const els = {};
+  for (const node of li.querySelectorAll('[data-el]')) els[node.dataset.el] = node;
+
+  // Names and emails are free text typed by colleagues; textContent throughout.
+  els.name.textContent = entry.name;
+  els.email.textContent = entry.email;
+  els.email.hidden = !entry.email;
+
+  els.remove.setAttribute('aria-label', `Remove ${entry.name} from the queue`);
+  els.remove.addEventListener('click', async () => {
+    setMsg(el('queue-msg'), '');
+    const result = await leaveQueue(db, entry.id, { name: entry.name, email: entry.email });
+    if (!result.ok) setMsg(el('queue-msg'), explainQueue(result), 'error');
+  });
+
+  return { li, els };
+}
+
+function updateQueueRow(row, entry, index) {
+  if (!row) return;
+  const { els } = row;
+
+  els.pos.textContent = String(index + 1);
+
+  const reservation = state.reservations.byEntryId.get(entry.id);
+  const offered = Boolean(reservation) && !reservation.expired;
+
+  // While somebody is being offered an account, how long they have left is the
+  // only thing about their line worth reading.
+  els.turn.hidden = !offered;
+  els.turn.textContent = offered
+    ? `${reservation.accountLabel} · ${formatCountdown(reservation.expiresAt - serverNow())} to claim`
+    : '';
+
+  els.wait.hidden = offered;
+  els.wait.textContent = `waiting ${formatDuration(serverNow() - entry.joinedAt)}`;
+
+  // Anyone can give up their own place; an admin can also clear somebody else's.
+  els.remove.hidden = !(state.identity.isAdmin || entryIsMine(entry));
+
+  row.li.dataset.mine = String(entryIsMine(entry));
+  row.li.dataset.turn = String(offered);
+}
+
+function wireQueuePanel() {
+  el('queue-join-btn').addEventListener('click', async () => {
+    setMsg(el('queue-msg'), '');
+
+    const typed = el('queue-who').value.trim();
+    const name = savedName() || typed;
+
+    if (!name) {
+      setMsg(el('queue-msg'), 'Type your name first.', 'error');
+      el('queue-who').focus();
+      return;
+    }
+
+    if (typed && !savedName()) saveName(typed);
+
+    const result = await whileBusy(el('queue-join-btn'), 'Joining…', () =>
+      joinQueue(db, { name, email: state.identity.email })
+    );
+    if (!result.ok) setMsg(el('queue-msg'), explainQueue(result), 'error');
+  });
+
+  el('queue-leave-btn').addEventListener('click', async () => {
+    setMsg(el('queue-msg'), '');
+    const mine = state.queue.find(entryIsMine);
+    if (!mine) return;
+
+    const result = await whileBusy(el('queue-leave-btn'), 'Leaving…', () =>
+      leaveQueue(db, mine.id, { name: mine.name, email: mine.email })
+    );
+    if (!result.ok) setMsg(el('queue-msg'), explainQueue(result), 'error');
+  });
+}
+
+// Nobody's seven minutes can expire on the server, because there is no server
+// here — so whichever browsers have the board open are what enforces it. The
+// delete is a transaction, so several tabs noticing at once is harmless: one
+// commits, the rest read null and abort. This tab's own retry gate only stops
+// it firing the same write once a second while the first is still in flight.
+function sweepTimeouts() {
+  if (!db) return;
+  const now = serverNow();
+
+  for (const reservation of state.reservations.byEntryId.values()) {
+    if (!reservation.expired) continue;
+
+    const { entry } = reservation;
+    if (now - (sweeps.get(entry.id) || 0) < SWEEP_RETRY_MS) continue;
+    sweeps.set(entry.id, now);
+
+    dropTimedOut(db, entry.id, {
+      name: entry.name,
+      email: entry.email,
+      accountId: reservation.accountId,
+      accountLabel: reservation.accountLabel,
+    }).catch((err) => console.warn('[board] could not drop a timed-out queue entry', err));
   }
 
-  els['queue-alert'].hidden = true;
-
-  const mine = queue.some((entry) => queueEntryIsMine(entry));
-  if (mine) {
-    els['queue-who-field'].hidden = true;
-    els['queue-join-btn'].hidden = true;
-    els['queue-leave-btn'].hidden = false;
-    els['queue-wait-note'].hidden = true;
-    return;
-  }
-
-  els['queue-leave-btn'].hidden = true;
-
-  if (canJoinQueue(lock)) {
-    els['queue-who-field'].hidden = Boolean(state.identity.email) || Boolean(savedName());
-    els['queue-join-btn'].hidden = false;
-    els['queue-wait-note'].hidden = true;
-  } else {
-    els['queue-who-field'].hidden = true;
-    els['queue-join-btn'].hidden = true;
-    els['queue-wait-note'].hidden = false;
-    els['queue-wait-note'].textContent = `You can join the queue in ${formatDuration(msUntilQueueable(lock))}.`;
+  // An entry with no reservation against it cannot time out, so there is
+  // nothing left to remember about it.
+  for (const id of sweeps.keys()) {
+    if (!state.reservations.byEntryId.has(id)) sweeps.delete(id);
   }
 }
 
@@ -729,10 +878,19 @@ function buildAddCard() {
 
 /* ------------------------------------------------------------- board render */
 
+// Reservations are a function of the accounts, the locks, the queue and the
+// clock, so they are recomputed rather than stored — every client works out the
+// same answer, and there is no third snapshot that can be stale. Called from
+// the one place every render starts, and again on every tick.
+function recomputeReservations() {
+  state.reservations = computeReservations(state.accounts, state.locks, state.queue);
+}
+
 function renderBoard() {
   const board = el('board');
   const seen = new Set();
 
+  recomputeReservations();
   syncSkeleton();
 
   // Counted separately from the loop index so the stagger is over the cards
@@ -751,7 +909,7 @@ function renderBoard() {
       playEntrance(card.root, fresh);
       fresh += 1;
     }
-    updateCard(card, account, state.locks[account.id], state.queues[account.id]);
+    updateCard(card, account, state.locks[account.id]);
   }
 
   for (const [id, card] of cards) {
@@ -762,8 +920,10 @@ function renderBoard() {
 
   syncAddCard(board);
   syncOrder(board);
+  renderQueuePanel();
   renderSummary();
   renderEmptyState();
+  sweepTimeouts();
 }
 
 // Card-shaped ghosts for as long as there is no board to show yet. They are not
@@ -897,18 +1057,28 @@ function setConnected(connected, everConnected) {
 // ticking. Recomputing locally every second means no polling, and the value
 // survives a reload because it was never held in a counter.
 function tick() {
+  // A reservation both starts and ends on the clock alone: no snapshot arrives
+  // to say that somebody's seven minutes are up.
+  recomputeReservations();
+
   for (const card of cards.values()) {
-    if (!isHeld(card.lock)) continue;
-    card.root.dataset.state = isOverdue(card.lock) ? 'overdue' : 'held';
-    renderHeldMeta(card);
-    // Not driven by any snapshot: the queue-eligibility countdown and each
-    // entry's "waiting Xm" both move on the clock alone.
-    renderQueue(card);
+    if (isHeld(card.lock)) {
+      card.root.dataset.state = isOverdue(card.lock) ? 'overdue' : 'held';
+      renderHeldMeta(card);
+      renderHeldAlerts(card);
+    } else {
+      renderFree(card);
+    }
+    renderBadge(card);
   }
+
+  renderQueuePanel();
 
   // Going overdue moves a card from one column of the meter to another, and no
   // snapshot arrives to say so — the clock is the only thing that changed.
   renderSummary();
+
+  sweepTimeouts();
 }
 
 /* ---------------------------------------------------------------- startup */
@@ -945,6 +1115,10 @@ async function start() {
 
   // The activity page is the owner's, so its link is too.
   el('nav').hidden = !state.identity.isAdmin;
+
+  // Wired once, before the first render: the panel's controls are page-level
+  // ids rather than per-card, so there is nothing to re-wire later.
+  wireQueuePanel();
 
   // Draw once before any snapshot arrives. Every other renderBoard() call is
   // driven by a listener, so without this the page stays blank until the first
@@ -986,7 +1160,7 @@ async function start() {
   onValue(
     ref(db, 'queue'),
     (snap) => {
-      state.queues = snap.val() || {};
+      state.queue = readQueue(snap.val());
       renderBoard();
     },
     (err) => showBanner(
@@ -1011,7 +1185,7 @@ async function refresh() {
     state.accounts = readAccounts(accountsSnap);
     state.accountsLoaded = true;
     state.locks = locksSnap.val() || {};
-    state.queues = queueSnap.val() || {};
+    state.queue = readQueue(queueSnap.val());
     renderBoard();
   } catch (err) {
     console.warn('[board] refetch on focus failed', err);

@@ -946,9 +946,11 @@ h1 {
   overflow-wrap: anywhere;
 }
 
-/* Visible at a glance without opening into the held view — the one thing
-   about a held card worth knowing before you even read the state word. */
-.queue-badge {
+/* Visible at a glance without reading the card — the one thing worth knowing
+   before you even reach the state word. It only ever says "Reserved" or "Your
+   turn" now; who is waiting moved to the board's own queue panel, because with
+   one queue for the whole board that is not a per-card fact. */
+.card-badge {
   display: inline-flex;
   align-items: center;
   padding: 2px 9px;
@@ -961,8 +963,8 @@ h1 {
   border: 1px solid var(--red-ring);
 }
 
-.card[data-state="held"] .queue-badge,
-.card[data-state="overdue"] .queue-badge {
+.card[data-state="held"] .card-badge,
+.card[data-state="overdue"] .card-badge {
   color: #fff;
   background: rgba(255, 255, 255, 0.18);
   border-color: rgba(255, 255, 255, 0.35);
@@ -1466,90 +1468,21 @@ input:focus-visible {
 .card[data-state="held"] .more > summary,
 .card[data-state="overdue"] .more > summary { color: rgba(255, 255, 255, 0.8); }
 
-/* ---------- queue: who is waiting on a held account ---------- */
+/* ---------- what the board says to a holder ---------- */
 
-/* Only ever rendered inside the held/overdue view, so it never needs a
+/* Only ever rendered inside the held/overdue view, so these never need a
    light-card variant. */
-.queue {
+.card-alerts {
   margin-top: 16px;
   padding-top: 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.22);
 }
 
-.queue-head {
-  margin: 0 0 9px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.queue-count { font-variant-numeric: tabular-nums; }
-
-.queue-list {
-  margin: 0 0 10px;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.queue-list li {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 6px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: var(--r-sm);
-  background: rgba(255, 255, 255, 0.14);
-  font-size: 13px;
-}
-
-.queue-name { font-weight: 600; overflow-wrap: anywhere; }
-
-.queue-since {
-  margin-left: auto;
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.queue-empty {
-  border: 0 !important;
-  background: none !important;
-  padding: 0 !important;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 13px;
-}
-
-.queue-remove {
-  font: inherit;
-  font-size: 15px;
-  line-height: 1;
-  background: none;
-  border: 0;
-  padding: 0 0 0 2px;
-  cursor: var(--cursor-hot);
-  color: rgba(255, 255, 255, 0.75);
-  transition: color 140ms var(--ease), transform 140ms var(--ease);
-}
-
-.queue-remove:hover { color: #fff; transform: scale(1.2); }
-
-.queue-remove:focus-visible {
-  outline: 2px solid #fff;
-  outline-offset: 2px;
-  border-radius: 3px;
-}
-
-/* The one line meant to change the holder's behaviour rather than just
-   report status, so it is solid rather than translucent like everything
-   else on the card — the loudest thing here, on purpose. */
-.queue-alert {
-  margin: 0 0 12px;
+/* The lines meant to change the holder's behaviour rather than just report
+   status, so the first is solid rather than translucent like everything else
+   on the card — the loudest thing here, on purpose. */
+.card-alert {
+  margin: 0;
   padding: 10px 13px;
   border-radius: var(--r-sm);
   background: #fff;
@@ -1559,9 +1492,195 @@ input:focus-visible {
   overflow-wrap: anywhere;
 }
 
-.queue-wait-note { margin: 0 0 10px; font-size: 13px; }
+/* Two solid white blocks stacked would be two of the loudest thing, which is
+   none. The queue nudge is the standing condition; the 2.5-hour line above it
+   is the one that has just changed. */
+.card-alert-soft {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-weight: 600;
+}
 
-.queue [data-el="queue-who-field"] { margin-bottom: 10px; }
+.card-alert + .card-alert { margin-top: 8px; }
+
+/* ---------- reserved: an account being held open for whoever is next ---------- */
+
+/* Sits where "Nobody is holding this right now" would, on a free (light) card.
+   Quiet rather than alarming for everyone else — it is not a problem, it is
+   the queue working — and unmissable for the person whose turn it is. */
+.reserved {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--red-ring);
+  border-radius: var(--r-sm);
+  background: var(--red-wash);
+}
+
+.reserved-word {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--red-ink);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.reserved-sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+/* Your own turn is the one state on this board that is asking you to do
+   something right now, so the card itself picks up the edge. */
+.card[data-reserved="mine"] {
+  border-color: var(--red-600);
+  box-shadow: var(--shadow-red);
+}
+
+/* ---------- the queue panel ---------- */
+
+/* One line for the whole board, wearing the summary strip above it: same place
+   on the page, same job of framing what is below before a single card has been
+   read. */
+.qpanel {
+  margin-bottom: 22px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--paper-2);
+}
+
+.qpanel-head { margin-bottom: 12px; }
+
+.qpanel-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.qpanel-count { font-variant-numeric: tabular-nums; }
+
+.qpanel-sub {
+  margin: 5px 0 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+  max-width: 60ch;
+}
+
+.qlist {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.qlist:empty { display: none; }
+
+.qrow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--paper);
+  font-size: 13px;
+}
+
+/* Your own line, so you can find yourself in a queue of nine without reading
+   any of the names. */
+.qrow[data-mine="true"] { border-color: var(--line-2); background: var(--paper-3); }
+
+/* Somebody's seven minutes are running. The only row on the page with a
+   deadline on it, and it looks like it. */
+.qrow[data-turn="true"] {
+  border-color: var(--red-ring);
+  background: var(--red-wash);
+}
+
+.qpos {
+  flex: none;
+  min-width: 1.6em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+}
+
+.qrow[data-turn="true"] .qpos { color: var(--red-ink); }
+
+/* Name over email rather than beside it: an email is long, and wrapping it
+   mid-address between two other columns makes the row unreadable. */
+.qwho {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.qname { font-weight: 650; overflow-wrap: anywhere; }
+
+.qemail {
+  font-size: 12px;
+  color: var(--ink-faint);
+  overflow-wrap: anywhere;
+}
+
+.qturn {
+  margin-left: auto;
+  font-weight: 700;
+  color: var(--red-ink);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.qwait {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.qremove {
+  flex: none;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  background: none;
+  border: 0;
+  padding: 0 0 0 2px;
+  cursor: var(--cursor-hot);
+  color: var(--ink-faint);
+  transition: color 140ms var(--ease), transform 140ms var(--ease);
+}
+
+.qremove:hover { color: var(--red-ink); transform: scale(1.2); }
+
+.qremove:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.qempty { margin: 0; font-size: 13px; color: var(--ink-faint); }
+
+.qactions {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.qactions .field { flex: 1 1 200px; max-width: 280px; }
 
 /* ---------- owner controls ---------- */
 
@@ -1988,6 +2107,15 @@ input:focus-visible {
 .log li[data-action="joined-queue"]::before {
   border-color: var(--red-600);
   background: var(--red-600);
+  width: 5px;
+  height: 5px;
+}
+
+/* A missed turn is a departure nobody chose, so it takes the empty dot of a
+   "left" line rather than the filled one — in the darkest note on the board,
+   the same shade force release uses for the other thing that happens to you. */
+.log li[data-action="queue-timeout"]::before {
+  border-color: var(--red-950);
   width: 5px;
   height: 5px;
 }

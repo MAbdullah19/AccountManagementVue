@@ -37,10 +37,16 @@ when, and when they expect to be done. That is the whole product.
 - **Force release, with a reason.** Admins can take an account back. The reason
   is required and both names go in the log. No confirm dialog, because dialogs
   train people to click through them.
-- **A queue, once you've had it a while.** The holder gets 2.5 hours nobody can
-  interrupt; after that, anyone can join the queue for that account, and the
-  holder sees a plain "N people are waiting" line. Signal only — claiming stays
-  first-come-first-served the moment it actually frees up.
+- **One queue for the whole board.** Join it whenever you like, from anywhere on
+  the page — you do not queue for a particular account. Everybody in it is
+  listed in order, by name and by the email Access authenticated, and you can
+  leave again at any time.
+- **Seven minutes to claim your turn.** When an account frees up it is held open
+  for whoever is next in line, with a countdown on the card. Claiming anything
+  takes you out of the queue. Miss the seven minutes and you lose your place
+  and the account goes back to first-come-first-served.
+- **A nudge at 2.5 hours.** Hold an account that long and your own card asks you
+  to wrap up. Nothing auto-releases; there is still no heartbeat.
 - **One line for the whole board.** `2 of 5 accounts free`, with a meter, above
   the cards — the question people walk up with, answered before they read one.
 - **Two admin-only pages, not one crowded one.** The activity summary (`Time
@@ -70,9 +76,18 @@ almost every design decision follows from that:
 - **No passwords and one role.** Reaching the page at all is handled at the edge
   by Cloudflare Access. The owner, who can add and rename accounts, is a
   hidden-buttons check, not a permission. See [Security, honestly](#security-honestly).
-- **The queue is a signal, not a reservation.** Joining it does not stop anyone
-  else — including someone not in it — from claiming the account the moment it
-  frees up. It only tells the holder that people are waiting.
+- **The queue's seven minutes are a client-side gate, not a permission.** While
+  a turn is running, the Claim button is not rendered for anyone else and
+  `claim()` refuses the write — but the database rules still let any signed-in
+  client write to `/locks`, exactly like the owner controls. Somebody with
+  devtools can still take it. See [Security, honestly](#security-honestly).
+- **Nothing about the queue is enforced by a server, because there is no
+  server.** Whose turn it is, is worked out in each browser from the queue and
+  the locks; a turn that runs out is cleared by whichever browsers have the
+  board open. With every tab closed, an expired turn just sits there until
+  somebody next loads the page.
+- **Position in the queue does not survive claiming something else.** Claim any
+  account and you leave the queue, whether or not it was the one offered to you.
 
 ## How it works
 
@@ -122,7 +137,7 @@ activity.js         the activity summary: pairs log lines into held time, writes
 log.js              the full log: paged reads of /log, writes nothing
 boot.js             Firebase init, sign-in, banner, connection pill, identity chip
 lock.js             claim / release / force-release transactions
-queue.js            join / leave the per-account queue
+queue.js            join / leave the board's queue, and whose turn it is
 accounts.js         account metadata writes
 identity.js         Cloudflare Access identity + the owner check
 clock.js            server time offset and all time formatting
@@ -185,8 +200,8 @@ repaints one. Under `prefers-reduced-motion` it writes nothing at all.
 
 ```
 /accounts/{id}   label, description, createdAt, users/{id}: { name, note }
-/locks/{id}      status "free" | "held", holder, email, claimedAt, expectedMinutes
-/queue/{id}/{entryId}   name, email, joinedAt
+/locks/{id}      status "free" | "held", holder, email, claimedAt, expectedMinutes, freedAt
+/queue/{entryId} name, email, joinedAt          — one queue, not one per account
 /log/{pushId}    accountId, accountLabel, name, email, action, at, reason, heldBy
 ```
 

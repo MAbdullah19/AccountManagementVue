@@ -22,6 +22,7 @@
         "email": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120" },
         "note": { ".validate": "newData.isString() && newData.val().length <= 120" },
         "claimedAt": { ".validate": "newData.isNumber()" },
+        "freedAt": { ".validate": "newData.isNumber()" },
         "expectedMinutes": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 480" },
         "$other": { ".validate": false }
       }
@@ -38,15 +39,13 @@
     },
     "queue": {
       ".read": "auth != null",
-      "$accountId": {
-        "$entryId": {
-          ".write": "auth != null",
-          ".validate": "newData.hasChildren(['name', 'joinedAt'])",
-          "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 40" },
-          "email": { ".validate": "newData.isString() && newData.val().length <= 120" },
-          "joinedAt": { ".validate": "newData.isNumber()" },
-          "$other": { ".validate": false }
-        }
+      "$entryId": {
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['name', 'joinedAt'])",
+        "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 40" },
+        "email": { ".validate": "newData.isString() && newData.val().length <= 120" },
+        "joinedAt": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
       }
     }
   }

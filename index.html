@@ -117,6 +117,35 @@
     <p id="banner-body"></p>
   </div>
 
+  <!-- One queue for the whole board, not one per account. Joinable whenever,
+       by anyone, whether or not anything is currently held — the point is to
+       be in line before you need to be. app.js shows it once the board has
+       loaded. -->
+  <section class="qpanel" id="queue-panel" hidden aria-label="Queue">
+    <header class="qpanel-head">
+      <h2 class="qpanel-title">Queue<span class="qpanel-count" id="queue-count"></span></h2>
+      <p class="qpanel-sub">
+        One line for every account. When one frees up, whoever is next in line
+        has 7 minutes to claim it — miss it and you lose your place.
+      </p>
+    </header>
+
+    <ol class="qlist" id="queue-list"></ol>
+    <p class="qempty" id="queue-empty" hidden>Nobody is waiting.</p>
+
+    <div class="qactions">
+      <label class="field" id="queue-who-field" hidden>
+        <span class="label">Your name</span>
+        <input id="queue-who" type="text" maxlength="40"
+               placeholder="e.g. Muhammad Abdullah" autocomplete="name">
+      </label>
+      <button class="btn btn-primary btn-sm" id="queue-join-btn" type="button">Join the queue</button>
+      <button class="btn btn-quiet btn-sm" id="queue-leave-btn" type="button" hidden>Leave the queue</button>
+    </div>
+
+    <p class="msg" id="queue-msg" role="status"></p>
+  </section>
+
   <!-- One card per account, plus the owner's add-account card at the end. -->
   <section class="board" id="board" aria-live="polite" aria-label="Accounts"></section>
 
@@ -142,14 +171,23 @@
 
     <header class="card-head">
       <h2 class="card-label" data-el="label"></h2>
-      <span class="queue-badge" data-el="queue-badge" hidden></span>
+      <span class="card-badge" data-el="card-badge" hidden></span>
       <p class="card-desc" data-el="description" hidden></p>
     </header>
 
     <!-- free -->
     <div class="view" data-el="view-free" hidden>
       <p class="state-word state-big">Available</p>
-      <p class="state-sub">Nobody is holding this right now.</p>
+      <p class="state-sub" data-el="free-sub">Nobody is holding this right now.</p>
+
+      <!-- Shown instead of that line when the queue has handed this account to
+           somebody for their 7 minutes. The claim form below is hidden with it
+           for everyone but them — see queue.js for how the offer is worked
+           out, and lock.js for the matching refusal. -->
+      <div class="reserved" data-el="reserved" hidden>
+        <p class="reserved-word" data-el="reserved-word"></p>
+        <p class="reserved-sub" data-el="reserved-sub"></p>
+      </div>
 
       <form class="claim-form" data-el="claim-form" novalidate>
         <label class="field">
@@ -188,24 +226,13 @@
 
       <p class="held-note" data-el="held-note" hidden></p>
 
-      <!-- Anyone waiting for this account, once the holder's 2.5h protected
-           window has passed. Signal only — see queue.js — so nothing here
-           blocks a claim; it just makes waiting legible to the holder. -->
-      <div class="queue" data-el="queue">
-        <p class="queue-alert" data-el="queue-alert" hidden></p>
-        <h3 class="queue-head">Waiting<span class="queue-count" data-el="queue-count"></span></h3>
-        <ol class="queue-list" data-el="queue-list"></ol>
-
-        <label class="field" data-el="queue-who-field" hidden>
-          <span class="label">Your name</span>
-          <input data-el="queue-who" type="text" maxlength="40"
-                 placeholder="e.g. Muhammad Abdullah" autocomplete="name">
-        </label>
-        <button class="btn btn-quiet btn-sm" data-el="queue-join-btn" type="button" hidden>Join queue</button>
-        <button class="btn btn-quiet btn-sm" data-el="queue-leave-btn" type="button" hidden>Leave queue</button>
-        <p class="queue-wait-note muted" data-el="queue-wait-note" hidden></p>
-
-        <p class="msg" data-el="queue-msg" role="status"></p>
+      <!-- Both shown to the holder alone, and only on their own card: the
+           first once they have had it for 2.5 hours, the second whenever
+           anybody is in the board's queue. Signal, like everything else here —
+           nothing auto-releases and nothing is blocked. -->
+      <div class="card-alerts" data-el="card-alerts">
+        <p class="card-alert" data-el="session-alert" hidden></p>
+        <p class="card-alert card-alert-soft" data-el="queue-alert" hidden></p>
       </div>
 
       <div class="actions">
@@ -264,6 +291,22 @@
     </div>
 
   </article>
+</template>
+
+<!-- One line of the queue. Cloned per entry and then updated in place — the
+     positions and countdowns move every second, and rebuilding the list that
+     often would blow away the focus of anyone tabbing through it. -->
+<template id="queue-row-template">
+  <li class="qrow">
+    <span class="qpos" data-el="pos" aria-hidden="true"></span>
+    <span class="qwho">
+      <span class="qname" data-el="name"></span>
+      <span class="qemail" data-el="email" hidden></span>
+    </span>
+    <span class="qturn" data-el="turn" hidden></span>
+    <span class="qwait" data-el="wait"></span>
+    <button class="qremove" data-el="remove" type="button" hidden>×</button>
+  </li>
 </template>
 
 <!-- The owner's add-account card, appended after the account cards. -->

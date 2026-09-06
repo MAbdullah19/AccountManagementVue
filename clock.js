@@ -43,6 +43,14 @@ export function formatDuration(ms) {
   return 'under a minute';
 }
 
+// mm:ss, for a deadline short enough that the seconds are the point: "6:42",
+// "0:09". Rounded up rather than down, so a countdown reaches 0:00 exactly when
+// the deadline passes instead of a second before it.
+export function formatCountdown(ms) {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(total / 60)}:${pad(total % 60)}`;
+}
+
 // "2:14 PM" in the reader's own locale and timezone.
 export function formatTimeOfDay(ms) {
   return new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });

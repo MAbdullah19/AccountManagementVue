@@ -65,6 +65,10 @@
     </ul>
   </section>
 
+  <!-- Filled from index.html's own markup by the script below, so the panel
+       cannot drift from the real one either. -->
+  <div id="queue-slot"></div>
+
   <section class="board" id="board"></section>
 
   <!-- Lives on activity.html now; kept here so the log line has a fixture too. -->
@@ -80,23 +84,69 @@ const html = await (await fetch('/index.html')).text();
 const doc = new DOMParser().parseFromString(html, 'text/html');
 const cardTpl = doc.getElementById('card-template');
 const addTpl = doc.getElementById('add-template');
+const rowTpl = doc.getElementById('queue-row-template');
 const board = document.getElementById('board');
+
+/* ------------------------------------------------------------ queue panel */
+
+// The real panel, lifted whole out of index.html and then filled by hand.
+const panel = doc.getElementById('queue-panel').cloneNode(true);
+panel.hidden = false;
+document.getElementById('queue-slot').append(panel);
+
+const QUEUE = [
+  { name: 'Hina M.', email: 'hina@vuepulse.com', turn: 'ops@vuepulse.com · 6:42 to claim' },
+  { name: 'Omar T.', email: 'omar@vuepulse.com', wait: 'waiting 24m', mine: true },
+  { name: 'Zara K.', email: '', wait: 'waiting 9m' },
+];
+
+panel.querySelector('#queue-count').textContent = ` (${QUEUE.length})`;
+panel.querySelector('#queue-empty').hidden = true;
+panel.querySelector('#queue-leave-btn').hidden = false;
+panel.querySelector('#queue-join-btn').hidden = true;
+
+QUEUE.forEach((entry, i) => {
+  const li = rowTpl.content.firstElementChild.cloneNode(true);
+  const els = {};
+  for (const n of li.querySelectorAll('[data-el]')) els[n.dataset.el] = n;
+
+  els.pos.textContent = String(i + 1);
+  els.name.textContent = entry.name;
+  els.email.textContent = entry.email;
+  els.email.hidden = !entry.email;
+  els.turn.hidden = !entry.turn;
+  els.turn.textContent = entry.turn || '';
+  els.wait.hidden = Boolean(entry.turn);
+  els.wait.textContent = entry.wait || '';
+  els.remove.hidden = !entry.mine;
+
+  li.dataset.mine = String(Boolean(entry.mine));
+  li.dataset.turn = String(Boolean(entry.turn));
+  panel.querySelector('#queue-list').append(li);
+});
+
+/* ----------------------------------------------------------------- cards */
 
 const ACCOUNTS = [
   { label: 'users@vuepulse.com', desc: 'Main shared login', state: 'free' },
   { label: 'billing@vuepulse.com', desc: 'Stripe dashboard', state: 'held',
     holder: 'Muhammad Abdullah', meta: 'Since 2:14 PM · 32m 07s elapsed · est. free by 3:00 PM',
     elapsed: 68, note: 'running the monthly export',
-    queue: ['Omar T.'] },
-  { label: 'ops@vuepulse.com', desc: '', state: 'overdue', holder: 'Bilal R.',
+    nudge: '3 people are in the queue — please release when you can.' },
+  { label: 'ops@vuepulse.com', desc: 'Reserved for whoever is next in line',
+    state: 'free', badge: 'Reserved',
+    reserved: { word: 'Reserved for Hina M. — 6:42 left', sub: 'hina@vuepulse.com' } },
+  { label: 'analytics@vuepulse.com', desc: 'GA4 + Looker', state: 'free',
+    badge: 'Your turn', mine: true,
+    reserved: {
+      word: 'Your turn — 4:08 left',
+      sub: 'Claim it now. If the time runs out it goes to the next person and you lose your place in the queue.',
+    } },
+  { label: 'support@vuepulse.com', desc: '', state: 'overdue', holder: 'Bilal R.',
     meta: 'Since 9:02 AM · held 4h 51m, still in use?', word: 'Overdue', release: true,
     elapsed: 100,
-    queue: ['Hina M.', 'Zara K.'] },
-  { label: 'analytics@vuepulse.com', desc: 'GA4 + Looker', state: 'free' },
-  { label: 'support@vuepulse.com', desc: 'Zendesk agent seat', state: 'held',
-    holder: 'Fatima S.', meta: 'Since 11:40 AM · 6m 12s elapsed · est. free by 12:10 PM',
-    elapsed: 21,
-    waitNote: 'Protected for 2h 24m more' },
+    alert: 'You have had this for 4h 51m. Please finish up and release it.',
+    nudge: '3 people are in the queue — please release when you can.' },
 ];
 
 for (const a of ACCOUNTS) {
@@ -105,9 +155,14 @@ for (const a of ACCOUNTS) {
   for (const n of root.querySelectorAll('[data-el]')) els[n.dataset.el] = n;
 
   root.dataset.state = a.state;
+  if (a.reserved) root.dataset.reserved = a.mine ? 'mine' : 'other';
+
   els.label.textContent = a.label;
   els.description.textContent = a.desc;
   els.description.hidden = !a.desc;
+
+  els['card-badge'].hidden = !a.badge;
+  els['card-badge'].textContent = a.badge || '';
 
   const held = a.state !== 'free';
   els['view-free'].hidden = held;
@@ -123,28 +178,21 @@ for (const a of ACCOUNTS) {
     els.timebar.hidden = typeof a.elapsed !== 'number';
     els['timebar-fill'].style.width = `${a.elapsed || 0}%`;
 
-    const queue = a.queue || [];
-    els['queue-badge'].hidden = !queue.length;
-    els['queue-badge'].textContent = queue.length ? `${queue.length} waiting` : '';
-    els['queue-alert'].hidden = !queue.length;
-    els['queue-alert'].textContent = queue.length
-      ? `${queue.length} ${queue.length === 1 ? 'person is' : 'people are'} waiting — please wrap up when you can.`
-      : '';
-    els['queue-count'].textContent = queue.length ? ` (${queue.length})` : '';
-    els['queue-wait-note'].hidden = !a.waitNote;
-    els['queue-wait-note'].textContent = a.waitNote || '';
-    for (const name of queue) {
-      const li = document.createElement('li');
-      li.textContent = name;
-      els['queue-list'].append(li);
-    }
-    if (!queue.length) {
-      const li = document.createElement('li');
-      li.className = 'queue-empty';
-      li.textContent = 'Nobody waiting yet.';
-      els['queue-list'].append(li);
-    }
+    els['session-alert'].hidden = !a.alert;
+    els['session-alert'].textContent = a.alert || '';
+    els['queue-alert'].hidden = !a.nudge;
+    els['queue-alert'].textContent = a.nudge || '';
+    els['card-alerts'].hidden = !a.alert && !a.nudge;
   } else {
+    els.reserved.hidden = !a.reserved;
+    els['free-sub'].hidden = Boolean(a.reserved);
+    // Reserved for somebody else means the form is not there to click — the
+    // one state where a free card offers nothing.
+    els['claim-form'].hidden = Boolean(a.reserved) && !a.mine;
+    if (a.reserved) {
+      els['reserved-word'].textContent = a.reserved.word;
+      els['reserved-sub'].textContent = a.reserved.sub;
+    }
     els.name.value = 'Muhammad Abdullah';
   }
 
@@ -158,6 +206,8 @@ const LOG = [
   ['2:14 PM', 'claimed', 'Muhammad Abdullah claimed billing@vuepulse.com'],
   ['1:58 PM', 'released', 'Muhammad Abdullah released users@vuepulse.com'],
   ['1:02 PM', 'force-released', 'Bilal R. force-released ops@vuepulse.com (held by Muhammad Abdullah): “left for the day”'],
+  ['12:55 PM', 'joined-queue', 'Hina M. (hina@vuepulse.com) joined the queue'],
+  ['12:40 PM', 'queue-timeout', 'Zara K. did not claim ops@vuepulse.com in time and left the queue'],
   ['Jul 30, 1:06 PM', 'released', 'Setup B released the account'],
 ];
 for (const [time, action, text] of LOG) {
